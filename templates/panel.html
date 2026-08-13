@@ -1,0 +1,942 @@
+<div id="nova-backdrop" style="display: none;">
+    <div id="nova-panel-container">
+        <div class="nova-header">
+            <!-- ЛЕВЫЙ угол: Дом и Личка -->
+            <div class="nova-header-left">
+                <div class="nova-icon-btn nova-nav-btn" data-target="feed" title="Главная">
+                    <i class="fa-solid fa-house"></i>
+                </div>
+                <div class="nova-icon-btn nova-nav-btn" data-target="chars" title="Персонажи">
+                    <i class="fa-solid fa-address-book"></i>
+                </div>
+                <div class="nova-icon-btn nova-nav-btn" data-target="dms" title="Сообщения">
+                    <i class="fa-solid fa-envelope"></i>
+                </div>
+                <div class="nova-icon-btn nova-nav-btn" data-target="gallery" title="Галерея">
+                    <i class="fa-solid fa-images"></i>
+                </div>
+                <div class="nova-icon-btn nova-nav-btn" data-target="relationships" title="Отношения">
+                    <i class="fa-solid fa-heart"></i>
+                </div>
+            </div>
+
+            <!-- ПРАВЫЙ угол: Профили, Настройки, Закрыть -->
+            <div class="nova-header-actions">
+                <div class="nova-icon-btn nova-nav-btn" data-target="history" title="Память">
+                    <i class="fa-solid fa-book-journal-whills"></i>
+                </div>
+                <div class="nova-icon-btn nova-nav-btn" data-target="settings" title="Настройки">
+                    <i class="fa-solid fa-gear"></i>
+                </div>
+                <div class="nova-icon-btn" id="nova-close-btn" title="Закрыть">
+                    <i class="fa-solid fa-xmark"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Живой статус MoodTube + управление, поверх всех вкладок -->
+        <div id="nova-now-playing" style="display: none;">
+            <div class="nova-now-playing-row">
+                <i class="fa-solid fa-music"></i>
+                <span id="nova-now-playing-title" class="nova-truncate"></span>
+                <div class="nova-now-playing-controls">
+                    <i class="fa-solid fa-backward-step" id="nova-mt-prev" title="Предыдущий"></i>
+                    <i class="fa-solid fa-play" id="nova-mt-playpause" title="Пауза/Play"></i>
+                    <i class="fa-solid fa-forward-step" id="nova-mt-next" title="Следующий"></i>
+                    <i class="fa-solid fa-xmark" id="nova-mt-close" title="Скрыть и поставить на паузу"></i>
+                </div>
+            </div>
+            <div class="nova-now-playing-progress-row">
+                <span id="nova-mt-time-current" class="nova-mt-time">0:00</span>
+                <div id="nova-mt-progress" class="nova-mt-progress-track">
+                    <div id="nova-mt-progress-fill" class="nova-mt-progress-fill"></div>
+                </div>
+                <span id="nova-mt-time-total" class="nova-mt-time">0:00</span>
+            </div>
+        </div>
+
+        <div class="nova-content">
+            <!-- Feed View -->
+            <div id="nova-view-feed" class="nova-tab-view active">
+                <div style="position: sticky; top: 0; z-index: 10; background: var(--nova-bg); padding: 12px; border-bottom: 1px solid var(--nova-border); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 700; font-size: 18px;">Главная</div>
+                    <div id="nova-feed-options-container" style="display: flex; gap: 8px; align-items: center; background: transparent;">
+                        <button id="nova-feed-cancel-select-btn" style="display: none; background: var(--nova-surface-hover); color: var(--nova-text); border: none; padding: 4px 12px; border-radius: 12px; cursor: pointer; font-size: 13px;">Отмена</button>
+                        <button id="nova-feed-confirm-delete-btn" style="display: none; background: #e0245e; color: white; border: none; padding: 4px 12px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: bold;">Удалить (0)</button>
+                        <button id="nova-feed-delete-btn" title="Удалить посты" style="background: transparent; border: none; color: var(--nova-text-muted); cursor: pointer; font-size: 16px; transition: 0.2s;"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+                <div id="nova-feed-container" style="padding-bottom: 80px;">
+                    <div class="nova-post" style="justify-content: center; padding: 32px; color: var(--nova-text-muted);">
+                        Лента ожидает постов...
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Chars View -->
+            <div id="nova-view-chars" class="nova-tab-view">
+                <div style="padding: 16px;">
+                    <h2 style="margin-top:0">Персонажи чата</h2>
+                    <div id="nova-chars-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                        <div style="color: var(--nova-text-muted); font-size: 14px; text-align: center; padding: 12px;">Загрузка персонажей...</div>
+                    </div>
+
+                    <h2 style="margin-top:0; border-top: 1px solid var(--nova-border); padding-top: 20px;">NPC</h2>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 8px;">
+                        <div style="display: flex; gap: 8px;">
+                            <button id="nova-archive-btn" title="Архив папок из других чатов" style="background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-box-archive"></i> Архив
+                            </button>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button id="nova-create-manual-npc-btn" title="Создать НПС" style="background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;">
+                                <i class="fa-solid fa-user-plus"></i>
+                            </button>
+                            <button id="nova-create-folder-btn" title="Создать папку" style="background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px;">
+                                <i class="fa-solid fa-folder-plus"></i>
+                            </button>
+                            <button id="nova-generate-npc-btn" title="Сгенерировать NPC" style="background: var(--nova-accent); color: white; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Сгенерировать
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="nova-folders-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+                        <!-- Folders populated by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTORY VIEW -->
+            <div id="nova-view-history" class="nova-tab-view">
+                <div style="padding: 16px;">
+                    <div style="font-weight: 700; font-size: 18px; border-bottom: 1px solid var(--nova-border); padding-bottom: 12px; margin-bottom: 16px;">
+                        Память ИИ (Журнал контекста)
+                    </div>
+                    <div style="font-size: 14px; color: var(--nova-text-muted); margin-bottom: 16px;">
+                        Здесь показаны все невидимые блоки, внедрённые в текущий чат. Зелёные — пересказ от модели, голубые — дословная переписка. Их можно изменять, удалять и переходить к нужному сообщению.
+                    </div>
+                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
+                        <div style="font-weight: 700; font-size: 16px; border-bottom: 1px solid var(--nova-border); padding-bottom: 8px;">Синхронизация с чатом</div>
+                        <div style="font-size: 14px; color: var(--nova-text-muted);">
+                            Незаметно сохраняет события соцсети (посты и личные сообщения) в основной чат, чтобы персонажи не забывали о ваших действиях здесь.
+                            К обоим способам прикладывается расшифровка ников — кто из них какой персонаж и кто из них вы.
+                        </div>
+
+                        <label style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">Размер пересказа</span>
+                            <select id="nova-settings-summary-size" class="nova-input" style="background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 8px 12px; border-radius: 8px; outline: none;">
+                                <option value="short">Краткий (1-2 предложения)</option>
+                                <option value="medium">Средний (3-4 предложения)</option>
+                                <option value="detailed">Подробный (с цитатами из личек)</option>
+                            </select>
+                        </label>
+
+                        <button id="nova-settings-manual-sync-btn" style="width: 100%; background: var(--nova-accent); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i class="fa-solid fa-rotate"></i> Пересказать в чат
+                        </button>
+
+                        <button id="nova-settings-transcript-btn" style="width: 100%; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i class="fa-solid fa-quote-left"></i> Вставить перепиской
+                        </button>
+                        <div style="font-size: 13px; color: var(--nova-text-muted); margin-top: -8px;">
+                            «Пересказать» — модель сжимает события в выжимку, тратит генерацию.
+                            «Перепиской» — посты и реплики уходят в чат дословно, без обращения к модели и без потери деталей.
+                        </div>
+                    </div>
+
+                    <div id="nova-history-list" style="display: flex; flex-direction: column; gap: 12px;">
+                        <!-- Dynamically filled -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="nova-view-settings" class="nova-tab-view">
+                <div style="padding: 16px; display: flex; flex-direction: column; gap: 20px; min-height: 100%;">
+                    <h2 style="margin: 0;">Настройки генерации</h2>
+                    
+                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">Профиль соединения API</span>
+                            <div style="display: flex; gap: 8px; align-items: stretch;">
+                                <select id="nova-proxy-list" style="flex: 1; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 0 12px; border-radius: 8px; outline: none; height: 40px; box-sizing: border-box; font-size: 14px;"></select>
+                                <button id="nova-refresh-proxy-btn" title="Обновить профили">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <label style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">
+                                Глубина контекста (сообщений): <span id="nova-context-size-val" style="color: var(--nova-accent); font-weight: bold;">50</span>
+                            </span>
+                            <input type="range" id="nova-context-size" min="1" max="150" value="50" style="width: 100%; accent-color: var(--nova-accent);">
+                        </label>
+
+                        <label style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">
+                                Лимит токенов генерации: <span id="nova-max-tokens-val" style="color: var(--nova-accent); font-weight: bold;">2500</span>
+                            </span>
+                            <input type="range" id="nova-max-tokens" min="0" max="8000" step="100" value="2500" style="width: 100%; accent-color: var(--nova-accent);">
+                        </label>
+
+                        <label style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">
+                                Память ленты (постов в промпт): <span id="nova-feed-history-size-val" style="color: var(--nova-accent); font-weight: bold;">12</span>
+                            </span>
+                            <input type="range" id="nova-feed-history-size" min="0" max="60" value="12" style="width: 100%; accent-color: var(--nova-accent);">
+                        </label>
+
+                        <label style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">
+                                Память переписки (сообщений в промпт): <span id="nova-dm-history-size-val" style="color: var(--nova-accent); font-weight: bold;">40</span>
+                            </span>
+                            <input type="range" id="nova-dm-history-size" min="0" max="200" step="5" value="40" style="width: 100%; accent-color: var(--nova-accent);">
+                        </label>
+                        <div style="font-size: 13px; color: var(--nova-text-muted); margin-top: -8px;">
+                            Сколько прошлого уходит модели в запрос. Чем больше — тем лучше она помнит, но тем толще промпт:
+                            если ловите 429 или обрывы ответа на длинных переписках, уменьшите. 0 — без ограничения.
+                        </div>
+
+                        <details class="nova-settings-group">
+                            <summary class="nova-settings-summary">
+                                <i class="fa-solid fa-chevron-right nova-settings-chevron"></i>
+                                <span>Рассуждения (Thinking)</span>
+                                <span class="nova-settings-badge" id="nova-thinking-badge"></span>
+                            </summary>
+                            <div class="nova-settings-body">
+
+                        <label style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">
+                                Уровень рассуждений:
+                            </span>
+                            <select id="nova-thinking-budget" style="width: 100%; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 10px 14px; border-radius: 12px; outline: none; font-size: 14px; appearance: auto; cursor: pointer; transition: border-color 0.2s;">
+                                <option value="inherit">Не вмешиваться (как в Таверне)</option>
+                                <option value="disabled">Отключены</option>
+                                <option value="auto">Авто</option>
+                                <option value="min" selected>Минимальные</option>
+                                <option value="low">Поверхностные</option>
+                                <option value="medium">Обычные</option>
+                                <option value="high">Подробные</option>
+                                <option value="max">Максимальные</option>
+                            </select>
+                            <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                                «Не вмешиваться» — NOVA не трогает рассуждения вообще, решают пресет профиля и настройки Таверны.
+                            </span>
+                        </label>
+
+                        <label style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">Начинать ответ с:</span>
+                            <input type="text" id="nova-start-reply-with" placeholder="берётся из Таверны" style="width: 100%; box-sizing: border-box; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 10px 14px; border-radius: 12px; outline: none; font-size: 14px; font-family: inherit;">
+                            <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                                Ответ преднаполняется этим текстом, и модель вынуждена начать с размышлений, а не сразу с JSON.
+                                Блок вырезается перед разбором JSON, в ленту не попадает.<br>
+                                Пусто — подхватывается значение из Таверны (Форматирование → Разное).
+                            </span>
+                        </label>
+
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="nova-reasoning-auto-parse" checked style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                                <span style="color: var(--nova-text-muted); font-size: 14px;">Авто-парсинг рассуждений</span>
+                            </label>
+                            <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                                Вырезать блок между префиксом и суффиксом до разбора JSON. Оба поля должны быть заполнены.
+                                Выключишь — размышления уедут в парсер и сломают ленту.
+                            </span>
+                            <div style="display: flex; gap: 10px;">
+                                <label style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                                    <span style="color: var(--nova-text-muted); font-size: 13px;">Префикс</span>
+                                    <input type="text" id="nova-reasoning-prefix" placeholder="&lt;think&gt;" style="width: 100%; box-sizing: border-box; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 8px 12px; border-radius: 10px; outline: none; font-size: 13px; font-family: inherit;">
+                                </label>
+                                <label style="display: flex; flex-direction: column; gap: 6px; flex: 1;">
+                                    <span style="color: var(--nova-text-muted); font-size: 13px;">Суффикс</span>
+                                    <input type="text" id="nova-reasoning-suffix" placeholder="&lt;/think&gt;" style="width: 100%; box-sizing: border-box; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 8px 12px; border-radius: 10px; outline: none; font-size: 13px; font-family: inherit;">
+                                </label>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="nova-thinking-prompt-enabled" style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                                <span style="color: var(--nova-text-muted); font-size: 14px;">Промпт думалки (по пунктам)</span>
+                            </label>
+                            <textarea id="nova-thinking-prompt" rows="7" style="width: 100%; box-sizing: border-box; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 10px 14px; border-radius: 12px; outline: none; font-size: 13px; resize: vertical; font-family: inherit;"></textarea>
+                            <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                                Что именно обдумать внутри блока. Работает только вместе с полем «Начинать ответ с» —
+                                без него модели нечего закрывать.
+                            </span>
+                        </div>
+
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="nova-thinking-hint-enabled" checked style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                                <span style="color: var(--nova-text-muted); font-size: 14px;">Инструкция про размышления в промпте</span>
+                            </label>
+                            <textarea id="nova-thinking-hint" rows="4" placeholder="Например: думай мало, экономь токены" style="width: 100%; box-sizing: border-box; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 10px 14px; border-radius: 12px; outline: none; font-size: 14px; resize: vertical; font-family: inherit;"></textarea>
+                            <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                                Дописывается в конец каждого промпта NOVA.
+                            </span>
+                        </div>
+
+                            </div>
+                        </details>
+
+                        <div style="display: flex; flex-direction: column; gap: 12px; padding-top: 8px;">
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="nova-include-char-card" checked style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                                <span>Отправлять карту персонажа</span>
+                            </label>
+
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="nova-include-user-persona" checked style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                                <span>Отправлять персону пользователя</span>
+                            </label>
+
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="nova-include-world-info" checked style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                                <span>Отправлять World Info (книги)</span>
+                            </label>
+
+                            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                <input type="checkbox" id="nova-include-author-note" checked style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                                <span>Отправлять авторские заметки</span>
+                            </label>
+                            <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4; margin-left: 28px; margin-top: -6px;">
+                                Заметка чата и заметка, привязанная к персонажу.
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Sync group moved to History tab -->
+
+                    <div style="margin-top: auto; padding-top: 20px;">
+                        <button id="nova-save-settings-btn" style="width: 100%; background: var(--nova-accent); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i class="fa-solid fa-floppy-disk"></i> Сохранить настройки
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- DMs View -->
+            <div id="nova-view-dms" class="nova-tab-view">
+                <div style="padding: 16px;">
+                    <h2 style="margin-top:0">Сообщения</h2>
+                    <div style="color: var(--nova-text-muted); text-align: center; padding: 40px;">Здесь будут личные сообщения...</div>
+                </div>
+            </div>
+
+            <!-- Gallery View -->
+            <div id="nova-view-gallery" class="nova-tab-view">
+                <div style="position: sticky; top: 0; z-index: 10; background: var(--nova-bg); padding: 12px; border-bottom: 1px solid var(--nova-border); display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <div class="nova-truncate" style="font-weight: 700; font-size: 18px;">Галерея</div>
+                    <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                        <div id="nova-gallery-count" style="color: var(--nova-text-muted); font-size: 13px;"></div>
+                        <button id="nova-gallery-hide-user" title="Скрыть фото, присланные юзером" style="background: transparent; color: var(--nova-text-muted); border: 1px solid var(--nova-border); border-radius: 8px; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 13px; flex-shrink: 0;"><i class="fa-solid fa-user-slash"></i></button>
+                        <div style="display: flex; border: 1px solid var(--nova-border); border-radius: 8px; overflow: hidden;">
+                            <button class="nova-gallery-scope active" data-scope="nova" style="background: transparent; color: var(--nova-text-muted); border: none; padding: 5px 10px; cursor: pointer; font-size: 12px;">NOVA</button>
+                            <button class="nova-gallery-scope" data-scope="all" style="background: transparent; color: var(--nova-text-muted); border: none; padding: 5px 10px; cursor: pointer; font-size: 12px; border-left: 1px solid var(--nova-border);">Все</button>
+                        </div>
+                        <div class="nova-icon-btn" id="nova-gallery-image-settings-btn" title="Настройки генерации изображений" style="background: transparent; color: var(--nova-text-muted); flex-shrink: 0;">
+                            <i class="fa-solid fa-gear"></i>
+                        </div>
+                    </div>
+                </div>
+                <div id="nova-gallery-grid" class="nova-gallery-grid"></div>
+            </div>
+
+            <!-- Relationships View -->
+            <div id="nova-view-relationships" class="nova-tab-view">
+                <div style="padding: 16px;">
+                    <h2 style="margin-top:0">Отношения</h2>
+
+                    <details class="nova-settings-group" style="margin-bottom: 20px;">
+                        <summary class="nova-settings-summary">
+                            <i class="fa-solid fa-chevron-right nova-settings-chevron"></i>
+                            <span>Кого отслеживать</span>
+                        </summary>
+                        <div class="nova-settings-body">
+                            <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                                Отмеченные герои сами решают, как меняется симпатия — по ходу ленты и переписки, без вашего участия.
+                            </span>
+                            <div id="nova-relationship-picker" style="display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto;"></div>
+                        </div>
+                    </details>
+
+                    <div id="nova-relationship-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Generation Settings Overlay -->
+        <div id="nova-view-image-settings" class="nova-folder-overlay" style="background: var(--nova-bg); z-index: 115;">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: rgba(21,32,43,0.85); backdrop-filter: blur(10px);">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                    <div class="nova-icon-btn" id="nova-image-settings-back-btn" title="Назад" style="background: transparent; flex-shrink: 0;">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </div>
+                    <div class="nova-header-title nova-truncate" style="font-size: 16px;">Генерация изображений</div>
+                    <span id="nova-image-badge" style="color: var(--nova-accent); font-size: 12px; opacity: 0.9; flex-shrink: 0;"></span>
+                </div>
+            </div>
+            <div class="nova-content" style="padding: 16px;">
+                <div class="nova-settings-body" style="padding: 0; border-top: none;">
+
+                    <div style="display: flex; flex-direction: column; gap: 8px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="nova-image-enabled" style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">Персонажи могут прикладывать фото</span>
+                        </label>
+                        <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                            Модель сама решает, когда персонажу есть что показать, и описывает кадр.
+                            Картинка рисуется отдельным запросом к выбранному ниже профилю.<br>
+                            Всё на этом экране сохраняется сразу, отдельная кнопка «Сохранить» не нужна.
+                        </span>
+                    </div>
+
+                    <label style="display: flex; flex-direction: column; gap: 8px;">
+                        <span style="color: var(--nova-text-muted); font-size: 14px;">
+                            Максимум фото за генерацию: <span id="nova-image-max-val" style="color: var(--nova-accent); font-weight: bold;">1</span>
+                        </span>
+                        <input type="range" id="nova-image-max" min="1" max="5" step="1" value="1" style="width: 100%; accent-color: var(--nova-accent);">
+                        <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                            Потолок на одну генерацию ленты или ответа в личке.
+                        </span>
+                    </label>
+
+                    <!-- Кому разрешено фото -->
+                    <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--nova-border); padding-top: 14px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <span class="nova-truncate" style="color: var(--nova-text); font-size: 14px; font-weight: 700;">Кому можно слать фото</span>
+                            <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                                <button id="nova-photo-allow-all" style="background: var(--nova-surface-hover); color: var(--nova-text-muted); border: 1px solid var(--nova-border); padding: 4px 10px; border-radius: 8px; cursor: pointer; font-size: 12px;">Всем</button>
+                                <button id="nova-photo-deny-all" style="background: var(--nova-surface-hover); color: var(--nova-text-muted); border: 1px solid var(--nova-border); padding: 4px 10px; border-radius: 8px; cursor: pointer; font-size: 12px;">Никому</button>
+                            </div>
+                        </div>
+                        <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                            Новые персонажи и NPC умеют слать фото сразу. Снимите галочку, чтобы случайный NPC
+                            не расходовал лимит вместо тех, кто важен в сцене.
+                        </span>
+                        <div id="nova-photo-permissions" style="display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto;"></div>
+                    </div>
+
+                    <!-- Профили подключения -->
+                    <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--nova-border); padding-top: 14px;">
+                        <span style="color: var(--nova-text); font-size: 14px; font-weight: 700;">Профиль подключения</span>
+
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="nova-image-use-sillyimages" style="accent-color: var(--nova-accent); width: 18px; height: 18px; flex-shrink: 0;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">Брать подключение из расширения sillyimages</span>
+                        </label>
+                        <div id="nova-image-sillyimages-info" style="display: none; font-size: 13px; color: var(--nova-text-muted); background: rgba(0,0,0,0.2); border: 1px solid var(--nova-border); border-radius: 10px; padding: 10px; line-height: 1.5;"></div>
+
+                        <div id="nova-image-own-profile" style="display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; gap: 8px; align-items: stretch;">
+                            <div id="nova-image-profile-select-wrap" style="flex: 1; min-width: 0;"></div>
+                            <div class="nova-icon-btn" id="nova-image-profile-new" title="Создать профиль" style="background: var(--nova-surface-hover); flex-shrink: 0;"><i class="fa-solid fa-plus"></i></div>
+                            <div class="nova-icon-btn" id="nova-image-profile-delete" title="Удалить профиль" style="background: var(--nova-surface-hover); flex-shrink: 0;"><i class="fa-solid fa-trash"></i></div>
+                        </div>
+
+                        <details id="nova-image-profile-editor" class="nova-settings-group" style="display: none;">
+                            <summary class="nova-settings-summary">
+                                <i class="fa-solid fa-chevron-right nova-settings-chevron"></i>
+                                <span>Настройки профиля</span>
+                            </summary>
+                            <div class="nova-settings-body" style="display: flex; flex-direction: column; gap: 10px;">
+                            <label style="display: flex; flex-direction: column; gap: 6px;">
+                                <span style="color: var(--nova-text-muted); font-size: 13px;">Название</span>
+                                <input type="text" id="nova-image-profile-name" placeholder="Например: nano-banana" class="nova-image-field">
+                            </label>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <span style="color: var(--nova-text-muted); font-size: 13px;">Тип API</span>
+                                <div id="nova-image-type-select-wrap"></div>
+                            </div>
+                            <label style="display: flex; flex-direction: column; gap: 6px;">
+                                <span style="color: var(--nova-text-muted); font-size: 13px;">URL эндпоинта</span>
+                                <input type="text" id="nova-image-profile-endpoint" placeholder="https://api.example.com" class="nova-image-field">
+                            </label>
+                            <label style="display: flex; flex-direction: column; gap: 6px;">
+                                <span style="color: var(--nova-text-muted); font-size: 13px;">API-ключ</span>
+                                <input type="password" id="nova-image-profile-key" placeholder="sk-..." autocomplete="off" class="nova-image-field">
+                            </label>
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                <span style="color: var(--nova-text-muted); font-size: 13px;">Модель</span>
+                                <div style="display: flex; gap: 8px; align-items: stretch;">
+                                    <div id="nova-image-model-select-wrap" style="flex: 1; min-width: 0;"></div>
+                                    <div class="nova-icon-btn" id="nova-image-model-refresh" title="Подтянуть список моделей" style="background: var(--nova-surface-hover); flex-shrink: 0;"><i class="fa-solid fa-arrows-rotate"></i></div>
+                                </div>
+                                <span id="nova-image-model-hint" style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;"></span>
+                            </div>
+
+                            <div id="nova-image-gemini-rows" style="display: none; flex-direction: column; gap: 10px;">
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    <span style="color: var(--nova-text-muted); font-size: 13px;">Соотношение сторон по умолчанию</span>
+                                    <div id="nova-image-aspect-select-wrap"></div>
+                                    <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                                        Берётся только когда модель не указала кадр в теге сама.
+                                    </span>
+                                </div>
+                                <div id="nova-image-imagesize-row" style="display: flex; flex-direction: column; gap: 6px;">
+                                    <span style="color: var(--nova-text-muted); font-size: 13px;">Разрешение</span>
+                                    <div id="nova-image-imagesize-select-wrap"></div>
+                                    <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                                        В отличие от соотношения сторон — принудительное: перебивает то, что попросила модель в теге.
+                                        Это вопрос цены и качества, а не кадра, и решать его должны вы, а не модель.
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; gap: 8px;">
+                                <button id="nova-image-profile-save" style="flex: 1; background: var(--nova-accent); color: white; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer;">Сохранить профиль</button>
+                                <button id="nova-image-profile-test" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer;">Проверить</button>
+                            </div>
+                            </div>
+                        </details>
+                        </div>
+                    </div>
+
+                    <!-- Промпты для тега фото -->
+                    <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--nova-border); padding-top: 14px;">
+                        <span style="color: var(--nova-text); font-size: 14px; font-weight: 700;">Промпт и стиль</span>
+                        <div style="display: flex; gap: 8px;">
+                            <div id="nova-image-preset-select-wrap" style="flex: 1; min-width: 0;"></div>
+                            <div class="nova-icon-btn" id="nova-image-preset-new" title="Создать промпт" style="background: var(--nova-surface-hover);"><i class="fa-solid fa-plus"></i></div>
+                            <div class="nova-icon-btn" id="nova-image-preset-delete" title="Удалить промпт" style="background: var(--nova-surface-hover);"><i class="fa-solid fa-trash"></i></div>
+                        </div>
+
+                        <label style="display: flex; flex-direction: column; gap: 6px;">
+                            <span style="color: var(--nova-text-muted); font-size: 13px;">Название промпта</span>
+                            <input type="text" id="nova-image-preset-name" placeholder="Например: аниме" class="nova-image-field">
+                        </label>
+
+                        <label style="display: flex; flex-direction: column; gap: 6px;">
+                            <span style="color: var(--nova-text-muted); font-size: 13px;">Правила заполнения тега</span>
+                            <textarea id="nova-image-preset-prompt" rows="18" placeholder="Типы кадра, порядок описания, что обязательно упомянуть..." style="width: 100%; box-sizing: border-box; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 10px 14px; border-radius: 12px; outline: none; font-size: 13px; resize: vertical; font-family: inherit;"></textarea>
+                        </label>
+                        <button id="nova-image-preset-save" style="background: var(--nova-accent); color: white; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer;">Сохранить промпт</button>
+                    </div>
+
+                    <!-- Стиль изображения -->
+                    <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--nova-border); padding-top: 14px;">
+                        <span style="color: var(--nova-text); font-size: 14px; font-weight: 700;">Стиль изображения</span>
+                        <div style="display: flex; gap: 8px;">
+                            <div id="nova-image-style-select-wrap" style="flex: 1; min-width: 0;"></div>
+                            <div class="nova-icon-btn" id="nova-image-style-new" title="Создать стиль" style="background: var(--nova-surface-hover);"><i class="fa-solid fa-plus"></i></div>
+                            <div class="nova-icon-btn" id="nova-image-style-delete" title="Удалить стиль" style="background: var(--nova-surface-hover);"><i class="fa-solid fa-trash"></i></div>
+                        </div>
+
+                        <div class="nova-ref-card">
+                            <div class="nova-ref-thumb" id="nova-image-style-thumb" title="Загрузить превью"><i class="fa-solid fa-image"></i></div>
+                            <div class="nova-ref-fields">
+                                <input type="text" id="nova-image-style-name" placeholder="Например: аниме" class="nova-image-field">
+                                <textarea id="nova-image-style-text" rows="1" placeholder="anime screenshot / semi-realistic / film photo, grainy" class="nova-image-field nova-autogrow"></textarea>
+                            </div>
+                        </div>
+                        <input type="file" id="nova-image-style-file" accept="image/*" style="display: none;">
+
+                        <button id="nova-image-style-save" style="background: var(--nova-accent); color: white; border: none; padding: 10px; border-radius: 10px; font-weight: 700; cursor: pointer;">Сохранить стиль</button>
+                    </div>
+
+                    <!-- Референсы внешности -->
+                    <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--nova-border); padding-top: 14px;">
+                        <span style="color: var(--nova-text); font-size: 14px; font-weight: 700;">Референсы внешности</span>
+
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="nova-image-refs-enabled" checked style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">Прикладывать референсы к запросу</span>
+                        </label>
+
+                        <div id="nova-image-refs-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+
+                        <button id="nova-image-ref-add" style="background: transparent; color: var(--nova-text-muted); border: 1px dashed var(--nova-border); padding: 10px; border-radius: 10px; cursor: pointer; font-size: 13px;">
+                            <i class="fa-solid fa-plus"></i> Добавить референс
+                        </button>
+                        <input type="file" id="nova-image-ref-file" accept="image/*" style="display: none;">
+
+                        <details id="nova-image-refs-archive-wrap" class="nova-settings-group" style="display: none;">
+                            <summary class="nova-settings-summary">
+                                <i class="fa-solid fa-chevron-right nova-settings-chevron"></i>
+                                <span>Архив референсов</span>
+                                <span class="nova-settings-badge" id="nova-image-refs-archive-count"></span>
+                            </summary>
+                            <div class="nova-settings-body">
+                                <div style="color: var(--nova-text-muted); font-size: 13px; margin-bottom: 10px;">
+                                    Эти референсы сохранены полностью, но в генерацию не уходят. Верните любой, когда снова понадобится.
+                                </div>
+                                <div id="nova-image-refs-archive" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                            </div>
+                        </details>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Options Modal -->
+        <div id="nova-delete-options-modal" style="display: none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center;">
+            <div style="background: var(--nova-surface); padding: 24px; border-radius: 16px; width: 80%; max-width: 320px; display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--nova-border);">
+                <h3 style="margin: 0 0 8px 0;">Удаление постов</h3>
+                <button id="nova-delete-last-batch" style="background: var(--nova-surface-hover); color: var(--nova-text); border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 15px; text-align: left;"><i class="fa-solid fa-clock-rotate-left" style="width: 24px;"></i> Последнюю генерацию</button>
+                <button id="nova-delete-select-mode" style="background: var(--nova-surface-hover); color: var(--nova-text); border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 15px; text-align: left;"><i class="fa-solid fa-list-check" style="width: 24px;"></i> Выбрать вручную</button>
+                <button id="nova-delete-cancel" style="background: transparent; color: var(--nova-text-muted); border: 1px solid var(--nova-border); padding: 12px; border-radius: 8px; cursor: pointer; font-size: 15px; text-align: center; margin-top: 8px;">Отмена</button>
+            </div>
+        </div>
+
+        <div class="nova-fab-container" id="nova-feed-fabs">
+            <button id="nova-refresh-feed-btn" class="nova-fab" title="Обновить ленту">
+                <i class="fa-solid fa-arrows-rotate"></i>
+            </button>
+            <button id="nova-create-post-btn" class="nova-fab secondary" title="Создать пост">
+                <i class="fa-solid fa-feather-pointed"></i>
+            </button>
+        </div>
+
+        <!-- New DM Selection Overlay -->
+        <div id="nova-view-new-dm-overlay" class="nova-folder-overlay" style="background: var(--nova-bg); z-index: 165;">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: rgba(21,32,43,0.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--nova-border); display: flex; align-items: center; gap: 16px;">
+                <div class="nova-icon-btn" id="nova-new-dm-back-btn" style="background: transparent;">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </div>
+                <h2 style="margin: 0; font-size: 18px;">Новое сообщение</h2>
+                <div class="nova-icon-btn" id="nova-new-dm-create-group-btn" title="Создать группу" style="background: transparent; margin-left: auto;">
+                    <i class="fa-solid fa-user-group"></i>
+                </div>
+            </div>
+            <div id="nova-new-dm-group-details" style="display: none; padding: 16px; border-bottom: 1px solid var(--nova-border); background: var(--nova-surface);">
+                <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 12px;">
+                    <div id="nova-new-group-avatar" class="nova-avatar-editable" title="Выбрать аватар группы" style="width:56px;height:56px;min-width:56px;border-radius:50%;background:var(--nova-surface-hover);border:1px dashed var(--nova-border);color:var(--nova-text-muted);display:flex;align-items:center;justify-content:center;font-size:20px;">
+                        <i class="fa-solid fa-camera"></i>
+                    </div>
+                    <input type="file" id="nova-new-group-avatar-input" accept="image/*" style="display: none;">
+                    <input type="text" id="nova-new-group-name" placeholder="Название группы..." style="flex: 1; min-width: 0; box-sizing: border-box; background: var(--nova-bg); border: 1px solid var(--nova-border); outline: none; color: var(--nova-text); font-size: 15px; padding: 12px 16px; border-radius: 8px; font-family: var(--nova-font);">
+                </div>
+                <div style="display: flex; gap: 12px;">
+                    <button id="nova-new-group-cancel" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 10px; border-radius: 8px; font-size: 14px; cursor: pointer;">Отмена</button>
+                    <button id="nova-new-group-confirm" style="flex: 1; background: var(--nova-accent); color: white; border: none; padding: 10px; border-radius: 8px; font-size: 14px; cursor: pointer; font-weight: bold;">Создать</button>
+                </div>
+            </div>
+            <div class="nova-content" style="padding: 16px;">
+                <div id="nova-new-dm-profiles-list" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- Profiles will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Single DM Thread Overlay View -->
+        <div id="nova-view-single-dm" class="nova-folder-overlay" style="background: var(--nova-bg); z-index: 170; flex-direction: column; height: 100%;">
+            <div class="nova-header" id="nova-single-dm-header" style="position: sticky; top: 0; z-index: 10; backdrop-filter: blur(10px); display: flex; align-items: center; justify-content: flex-start; gap: 16px;">
+                <div class="nova-icon-btn nova-overlay-back" style="background: transparent;">
+                    <i class="fa-solid fa-arrow-left"></i>
+                </div>
+                <div id="nova-single-dm-avatar-container"></div>
+                <input type="file" id="nova-group-avatar-input" accept="image/*" style="display: none;">
+                <div style="display: flex; flex-direction: column; flex: 1; min-width: 0; overflow: hidden;">
+                    <h2 id="nova-single-dm-name" class="nova-truncate" style="margin: 0; font-size: 18px; line-height: 1.2;"></h2>
+                    <div id="nova-single-dm-handle" class="nova-truncate" style="font-size: 13px; color: var(--nova-text-muted);"></div>
+                </div>
+                <div class="nova-icon-btn" id="nova-single-dm-transcript-btn" title="Вставить эту переписку в чат дословно" style="background: transparent; color: var(--nova-text-muted); margin-left: auto;">
+                    <i class="fa-solid fa-quote-left"></i>
+                </div>
+                <div class="nova-icon-btn" id="nova-single-dm-delete-mode-btn" title="Выбрать сообщения для удаления" style="background: transparent; color: var(--nova-text-muted);">
+                    <i class="fa-solid fa-trash"></i>
+                </div>
+            </div>
+            <div id="nova-single-dm-wallpaper"></div>
+            <div id="nova-single-dm-messages" class="nova-content" style="padding: 16px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; flex: 1;">
+                <!-- Messages will go here -->
+            </div>
+            
+            <div id="nova-single-dm-input-bar" style="padding: 12px 16px; flex-shrink: 0; position: relative;">
+                <!-- Подсказка команд: всплывает НАД полем ввода, когда набирают "/" -->
+                <div id="nova-dm-command-hints" class="nova-command-hints" style="display: none;"></div>
+                <div id="nova-single-dm-input-area" style="display: flex; flex-direction: column; gap: 10px;">
+                    <div id="nova-dm-image-preview" class="nova-image-preview" style="display: none;">
+                        <img src="" alt="">
+                        <button type="button" class="nova-image-remove" title="Убрать изображение"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div class="nova-dm-plus-wrap" style="position: relative; flex-shrink: 0;">
+                            <button type="button" id="nova-dm-plus" class="nova-icon-btn" title="Прикрепить" style="width: 40px; height: 40px;"><i class="fa-solid fa-plus"></i></button>
+                            <div id="nova-dm-plus-menu" class="nova-dm-plus-menu">
+                                <button type="button" id="nova-dm-attach" class="nova-dm-plus-item"><i class="fa-solid fa-image"></i><span>Фото</span></button>
+                                <button type="button" id="nova-dm-transfer" class="nova-dm-plus-item"><i class="fa-solid fa-money-bill-transfer"></i><span>Перевод</span></button>
+                                <button type="button" id="nova-dm-suggest-avatar" class="nova-dm-plus-item"><i class="fa-solid fa-image-portrait"></i><span>Предложить аватар</span></button>
+                                <button type="button" id="nova-dm-set-wallpaper" class="nova-dm-plus-item"><i class="fa-solid fa-panorama"></i><span>Обои чата</span></button>
+                                <button type="button" id="nova-dm-set-theme" class="nova-dm-plus-item"><i class="fa-solid fa-palette"></i><span>Тема чата</span></button>
+                            </div>
+                        </div>
+                        <input type="file" id="nova-dm-image-input" accept="image/*" style="display: none;">
+                        <input type="file" id="nova-dm-avatar-suggest-input" accept="image/*" style="display: none;">
+                        <input type="file" id="nova-dm-wallpaper-input" accept="image/*" style="display: none;">
+                        <textarea id="nova-single-dm-reply-input" rows="1" placeholder="Написать сообщение..." style="flex: 1; min-width: 0; outline: none; font-size: 15px; padding: 12px 16px; border-radius: 20px; font-family: var(--nova-font); resize: none; max-height: 120px; overflow-y: hidden; line-height: 1.4;"></textarea>
+                        <button id="nova-single-dm-reply-btn" style="color: white; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;"><i class="fa-solid fa-paper-plane"></i></button>
+                    </div>
+                </div>
+                <div id="nova-single-dm-delete-actions" style="display: none; gap: 12px; align-items: center;">
+                    <button id="nova-single-dm-cancel-delete" style="flex: 1; background: var(--nova-dm-card, var(--nova-surface)); color: var(--nova-dm-card-text, var(--nova-text)); border: 1px solid var(--nova-dm-border, var(--nova-border)); padding: 12px 16px; border-radius: 20px; font-size: 15px; cursor: pointer; font-weight: bold;">Отмена</button>
+                    <button id="nova-single-dm-confirm-delete" style="flex: 1; background: #f44336; color: white; border: none; padding: 12px 16px; border-radius: 20px; font-size: 15px; cursor: pointer; font-weight: bold;">Удалить выбранные</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Folder Overlay View -->
+        <div id="nova-view-folder-overlay" class="nova-folder-overlay">
+            <div class="nova-header" style="justify-content: space-between; position: sticky; top: 0; z-index: 10; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                    <div class="nova-icon-btn" id="nova-folder-back-btn" title="Назад" style="background: var(--nova-surface-hover); flex-shrink: 0;">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </div>
+                    <div class="nova-header-title" id="nova-folder-title" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1;">Default</div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div class="nova-icon-btn" id="nova-folder-rename-btn" title="Переименовать папку" style="background: var(--nova-surface-hover);">
+                        <i class="fa-solid fa-pen"></i>
+                    </div>
+                    <div class="nova-icon-btn" id="nova-folder-add-npc-btn" title="Создать NPC в этой папке" style="background: var(--nova-surface-hover);">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </div>
+                    <div class="nova-icon-btn" id="nova-folder-select-mode-btn" title="Выбрать несколько" style="background: var(--nova-surface-hover);">
+                        <i class="fa-solid fa-list-check"></i>
+                    </div>
+                    <label class="nova-switch" title="Включить/Отключить папку в ленте" style="margin-left: 4px;">
+                        <input type="checkbox" id="nova-folder-master-toggle" checked>
+                        <span class="nova-slider"></span>
+                    </label>
+                </div>
+            </div>
+            <div id="nova-folder-bulk-bar" style="display: none; align-items: center; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--nova-border); background: var(--nova-surface); position: sticky; top: 56px; z-index: 9;">
+                <span id="nova-folder-bulk-count" style="font-size: 13px; color: var(--nova-text-muted); white-space: nowrap;">Выбрано: 0</span>
+                <select id="nova-folder-bulk-move-select" class="nova-input" style="flex: 1; min-width: 0; height: 34px; border-radius: 8px; font-size: 13px;"></select>
+                <button id="nova-folder-bulk-move-btn" title="Переместить выбранных" style="background: var(--nova-accent); color: white; border: none; height: 34px; padding: 0 12px; border-radius: 8px; font-weight: 600; cursor: pointer; white-space: nowrap;">
+                    <i class="fa-solid fa-right-left"></i>
+                </button>
+                <button id="nova-folder-bulk-copy-btn" title="Копировать выбранных" style="background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); height: 34px; padding: 0 12px; border-radius: 8px; cursor: pointer;">
+                    <i class="fa-regular fa-copy"></i>
+                </button>
+                <button id="nova-folder-bulk-delete-btn" title="Удалить выбранных" style="background: rgba(244,67,54,0.15); color: #f44336; border: 1px solid rgba(244,67,54,0.4); height: 34px; padding: 0 12px; border-radius: 8px; cursor: pointer;">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </div>
+            <div class="nova-content" style="padding: 16px;">
+                <div id="nova-folder-npcs-list" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- specific NPCs populated by JS -->
+                </div>
+                <button id="nova-folder-restore-defaults-btn" style="display: none; width: 100%; margin-top: 16px; background: transparent; color: var(--nova-text-muted); border: 1px dashed var(--nova-border); padding: 10px; border-radius: 12px; cursor: pointer; font-size: 13px;">
+                    <i class="fa-solid fa-rotate-left"></i> Вернуть стандартных NPC
+                </button>
+            </div>
+        </div>
+
+        <!-- Create Post Overlay View -->
+        <div id="nova-view-create-post" class="nova-folder-overlay" style="background: var(--nova-bg); z-index: 120;">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; border-bottom: 1px solid var(--nova-border); display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="nova-icon-btn" id="nova-create-post-cancel" title="Отмена" style="background: transparent;">
+                        <i class="fa-solid fa-xmark"></i>
+                    </div>
+                </div>
+                <button id="nova-create-post-submit" style="background: var(--nova-accent); color: white; border: none; padding: 6px 16px; border-radius: 16px; font-weight: bold; cursor: pointer; transition: 0.2s;" disabled>Опубликовать</button>
+            </div>
+            <div class="nova-content" style="padding: 16px; display: flex; gap: 12px;">
+                <div id="nova-create-post-avatar" class="nova-profile-avatar" style="width: 48px; height: 48px; min-width: 48px; background: var(--nova-surface-hover); color: var(--nova-text-muted); display: flex; align-items: center; justify-content: center; font-size: 20px;"><i class="fa-solid fa-user"></i></div>
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0;">
+                    <textarea id="nova-create-post-input" placeholder="Что у вас на уме?" style="width: 100%; box-sizing: border-box; background: transparent; border: none; outline: none; color: var(--nova-text); font-size: 18px; resize: none; min-height: 120px; font-family: var(--nova-font);"></textarea>
+                    <div id="nova-create-post-image-preview" class="nova-image-preview" style="display: none;">
+                        <img src="" alt="">
+                        <button type="button" class="nova-image-remove" title="Убрать изображение"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div>
+                        <button type="button" id="nova-create-post-attach" class="nova-attach-btn" title="Прикрепить изображение">
+                            <i class="fa-solid fa-image"></i><span>Изображение</span>
+                        </button>
+                        <input type="file" id="nova-create-post-image-input" accept="image/*" style="display: none;">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Public Profile Overlay View -->
+        <div id="nova-view-public-profile" class="nova-folder-overlay" style="background: var(--nova-surface); z-index: 110;">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: rgba(21,32,43,0.85); backdrop-filter: blur(10px);">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                    <div class="nova-icon-btn" id="nova-public-profile-back-btn" title="Назад" style="background: transparent;">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </div>
+                    <div style="min-width: 0; overflow: hidden;">
+                        <div class="nova-header-title nova-truncate" id="nova-public-profile-name" style="font-size: 16px;">Имя</div>
+                        <div class="nova-truncate" style="font-size: 12px; color: var(--nova-text-muted);" id="nova-public-profile-stats">0 постов</div>
+                    </div>
+                </div>
+            </div>
+            <div class="nova-content" style="padding: 0;">
+                <div id="nova-public-profile-banner" style="height: 120px; background: var(--nova-accent); background-size: cover; background-position: center;"></div>
+                <div style="padding: 12px 16px; position: relative;">
+                    <img id="nova-public-profile-avatar" src="" style="width: 72px; height: 72px; border-radius: 50%; border: 3px solid var(--nova-surface); position: absolute; top: -36px; background: var(--nova-surface); object-fit: cover;">
+                    
+                    <div style="display: flex; justify-content: flex-end; height: 36px;">
+                        <button id="nova-public-profile-action-btn" style="background: transparent; border: 1px solid var(--nova-border); color: var(--nova-text); padding: 4px 16px; border-radius: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+                            Читать
+                        </button>
+                    </div>
+                    
+                    <div style="margin-top: 4px;">
+                        <div id="nova-public-profile-name-large" style="font-size: 18px; font-weight: 800; line-height: 1.2;">Имя</div>
+                        <div id="nova-public-profile-handle" style="font-size: 14px; color: var(--nova-text-muted);">@handle</div>
+                    </div>
+                    
+                    <div id="nova-public-profile-bio" style="margin-top: 12px; font-size: 14px; line-height: 1.4;">
+                        Описание профиля...
+                    </div>
+                </div>
+                
+                <div style="display: flex; border-bottom: 1px solid var(--nova-border);">
+                    <div class="nova-profile-tab active" data-tab="posts" style="flex: 1; text-align: center; padding: 12px; cursor: pointer; font-weight: 600; color: var(--nova-text); position: relative;">
+                        Посты
+                        <div class="nova-profile-tab-indicator" style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: var(--nova-accent); border-radius: 4px 4px 0 0;"></div>
+                    </div>
+                    <div class="nova-profile-tab" data-tab="replies" style="flex: 1; text-align: center; padding: 12px; cursor: pointer; font-weight: 600; color: var(--nova-text-muted); position: relative;">
+                        Ответы
+                        <div class="nova-profile-tab-indicator" style="position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 40px; height: 4px; background: var(--nova-accent); border-radius: 4px 4px 0 0; display: none;"></div>
+                    </div>
+                </div>
+                
+                <div id="nova-public-profile-feed" style="min-height: 200px;">
+                    <!-- посты загружаются сюда -->
+                </div>
+            </div>
+        </div>
+        <!-- Single Post Overlay View -->
+        <div id="nova-view-single-post" class="nova-folder-overlay" style="background: var(--nova-bg); display: flex; flex-direction: column;">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: rgba(21,32,43,0.85); backdrop-filter: blur(10px); flex-shrink: 0;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="nova-icon-btn" id="nova-single-post-back-btn" title="Назад" style="background: transparent;">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </div>
+                    <div class="nova-header-title" style="font-size: 16px;">Тред</div>
+                </div>
+                <div id="nova-single-post-options-container" style="display: flex; gap: 8px; align-items: center;">
+                    <button id="nova-reply-cancel-select-btn" style="display: none; background: var(--nova-surface-hover); color: var(--nova-text); border: none; padding: 4px 12px; border-radius: 12px; cursor: pointer; font-size: 13px;">Отмена</button>
+                    <button id="nova-reply-confirm-delete-btn" style="display: none; background: #e0245e; color: white; border: none; padding: 4px 12px; border-radius: 12px; cursor: pointer; font-size: 13px; font-weight: bold;">Удалить (0)</button>
+                    <div class="nova-icon-btn" id="nova-reply-select-mode-btn" title="Выбрать ответы для удаления" style="background: transparent;">
+                        <i class="fa-solid fa-trash"></i>
+                    </div>
+                </div>
+            </div>
+            <div class="nova-content" style="padding: 0; flex: 1; overflow-y: auto;">
+                <div id="nova-single-post-main" style="border-bottom: 1px solid var(--nova-border);"></div>
+                <div id="nova-single-post-replies" style="min-height: 200px; padding-bottom: 16px;"></div>
+            </div>
+            <div style="padding: 12px 16px; border-top: 1px solid var(--nova-border); display: flex; gap: 12px; align-items: center; flex-shrink: 0; background: var(--nova-bg);">
+                <div id="nova-single-post-reply-avatar" class="nova-profile-avatar" style="width: 32px; height: 32px; background: var(--nova-surface-hover); color: var(--nova-text-muted); display: flex; align-items: center; justify-content: center; font-size: 14px;"><i class="fa-solid fa-user"></i></div>
+                <input type="text" id="nova-single-post-reply-input" placeholder="Написать ответ..." style="flex: 1; background: transparent; border: none; outline: none; color: var(--nova-text); font-size: 15px;">
+                <button id="nova-single-post-reply-btn" style="background: var(--nova-accent); color: white; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; flex-shrink: 0;"><i class="fa-solid fa-paper-plane"></i></button>
+            </div>
+        </div>
+
+        <!-- Archive Overlay View -->
+        <div id="nova-view-archive" class="nova-folder-overlay">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="nova-icon-btn" id="nova-archive-back-btn" title="Назад" style="background: var(--nova-surface-hover);">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </div>
+                    <div class="nova-header-title">Архив (Другие чаты)</div>
+                </div>
+            </div>
+            <div class="nova-content" style="padding: 16px;">
+                <div id="nova-archive-folders-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;">
+                    <!-- Archive folders populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Manual NPC Creation Overlay -->
+        <div id="nova-view-create-npc" class="nova-folder-overlay">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div class="nova-icon-btn" id="nova-create-npc-back-btn" title="Отмена" style="background: var(--nova-surface-hover);">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </div>
+                    <div class="nova-header-title" id="nova-npc-editor-title">Создать НПС</div>
+                </div>
+            </div>
+            <div class="nova-content" style="padding: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div>
+                        <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 6px;">Шапка профиля</div>
+                        <div id="nova-create-npc-banner-wrapper" title="Загрузить шапку" style="position: relative; width: 100%; aspect-ratio: 3 / 1; border-radius: 12px; overflow: hidden; cursor: pointer; background: var(--nova-surface-hover); border: 1px dashed var(--nova-border); display: flex; align-items: center; justify-content: center;">
+                            <img id="nova-create-npc-banner-preview" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                            <div id="nova-create-npc-banner-empty" style="font-size: 12px; color: var(--nova-text-muted); display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-image"></i> Нажмите, чтобы загрузить
+                            </div>
+                            <button id="nova-create-npc-banner-clear" title="Убрать шапку" style="display: none; position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.6); color: white; border: none; width: 26px; height: 26px; border-radius: 50%; cursor: pointer;">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </div>
+                        <input type="file" id="nova-create-npc-banner-input" accept="image/*" style="display: none;">
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="position: relative; cursor: pointer; width: 64px; height: 64px;" id="nova-create-npc-avatar-wrapper" title="Загрузить аватар">
+                            <img id="nova-create-npc-avatar-preview" src="" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover; background: var(--nova-surface-hover);">
+                            <div id="nova-create-npc-avatar-placeholder" style="width: 100%; height: 100%; border-radius: 50%; display: none; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 24px; background: var(--nova-surface-hover);"></div>
+                            <div style="position: absolute; bottom: 0; right: 0; background: var(--nova-accent); color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 12px; border: 2px solid var(--nova-surface);"><i class="fa-solid fa-camera"></i></div>
+                        </div>
+                        <input type="file" id="nova-create-npc-avatar-input" accept="image/*" style="display: none;">
+                        <div style="flex: 1;">
+                            <div style="font-size: 14px; font-weight: 600; margin-bottom: 6px;">Аватарка НПС</div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <input type="color" id="nova-create-npc-color" value="#607d8b" title="Цвет заглушки" style="width: 32px; height: 32px; padding: 0; border: 1px solid var(--nova-border); border-radius: 8px; background: transparent; cursor: pointer;">
+                                <span style="font-size: 12px; color: var(--nova-text-muted);">Цвет без аватарки</span>
+                                <button id="nova-create-npc-avatar-clear" title="Убрать аватарку" style="margin-left: auto; background: transparent; border: none; color: var(--nova-text-muted); cursor: pointer; font-size: 13px;"><i class="fa-solid fa-eraser"></i></button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Папка</div>
+                        <select id="nova-create-npc-folder-select" class="nova-input" style="width: 100%; height: 40px; border-radius: 8px;">
+                            <!-- populated by JS -->
+                        </select>
+                    </div>
+
+                    <div>
+                        <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Имя</div>
+                        <input type="text" id="nova-create-npc-name" class="nova-input" placeholder="Имя НПС">
+                    </div>
+                    <div>
+                        <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Тэг (@)</div>
+                        <input type="text" id="nova-create-npc-handle" class="nova-input" placeholder="@tag">
+                    </div>
+                    <div>
+                        <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Описание (био)</div>
+                        <textarea id="nova-create-npc-desc" class="nova-input" rows="3" style="resize: vertical;" placeholder="Кто это такой?"></textarea>
+                    </div>
+                    <div>
+                        <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Стиль постов</div>
+                        <input type="text" id="nova-create-npc-style" class="nova-input" placeholder="Например: агрессивный, много смайлов">
+                    </div>
+
+                    <label style="display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer;">
+                        <span style="font-size: 14px; font-weight: 600;">Активен в ленте</span>
+                        <span class="nova-switch" style="margin: 0;">
+                            <input type="checkbox" id="nova-create-npc-active" checked>
+                            <span class="nova-slider"></span>
+                        </span>
+                    </label>
+
+                    <button id="nova-save-manual-npc-btn" style="width: 100%; background: var(--nova-accent); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="fa-solid fa-check"></i> <span id="nova-save-manual-npc-text">Создать</span>
+                    </button>
+                    <button id="nova-delete-npc-btn" style="display: none; width: 100%; background: rgba(244,67,54,0.12); color: #f44336; border: 1px solid rgba(244,67,54,0.4); padding: 10px; border-radius: 12px; font-weight: 600; cursor: pointer; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="fa-solid fa-trash"></i> Удалить NPC
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

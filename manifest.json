@@ -1,0 +1,13 @@
+{
+    "display_name": "NOVA",
+    "loading_order": 110,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "ann22cadis",
+    "version": "beta",
+    "description": "Social network feed extension for characters",
+    "auto_update": false,
+    "homePage": "https://github.com/ann22cadis/NOVA"
+}
