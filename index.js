@@ -1883,19 +1883,40 @@ sketch or construction lines.`,
         return Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: 1 });
     }
 
+    /** Тот же chatId, каким уже ключуются chatFeeds — берётся отсюда же, чтобы не разъехаться. */
+    function getCurrentChatId() {
+        if (typeof window.chatId !== 'undefined') return window.chatId;
+        const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        return stContext?.chatId || 'default';
+    }
+
     function getRelationshipSettings() {
         const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (!ctx?.extensionSettings) return structuredClone(NOVA_RELATIONSHIP_DEFAULTS);
         if (!ctx.extensionSettings.NOVA) ctx.extensionSettings.NOVA = {};
 
         const store = ctx.extensionSettings.NOVA;
-        if (!store.relationships || typeof store.relationships !== 'object') {
-            store.relationships = structuredClone(NOVA_RELATIONSHIP_DEFAULTS);
+        if (!store.relationshipsByChat || typeof store.relationshipsByChat !== 'object') {
+            store.relationshipsByChat = {};
         }
-        if (!Array.isArray(store.relationships.tracked)) store.relationships.tracked = [];
-        if (!store.relationships.data || typeof store.relationships.data !== 'object') store.relationships.data = {};
-        if (typeof store.relationships.unreadCount !== 'number') store.relationships.unreadCount = 0;
-        return store.relationships;
+        // Миграция: раньше отношения были ОДНИ на все чаты сразу — своего chatId
+        // у них не было в принципе. Переносим в тот чат, что открыт прямо сейчас,
+        // раз другого способа понять, к какой ролке они относились, нет
+        if (store.relationships && typeof store.relationships === 'object'
+            && Object.keys(store.relationshipsByChat).length === 0) {
+            store.relationshipsByChat[getCurrentChatId()] = store.relationships;
+            delete store.relationships;
+        }
+
+        const chatId = getCurrentChatId();
+        if (!store.relationshipsByChat[chatId] || typeof store.relationshipsByChat[chatId] !== 'object') {
+            store.relationshipsByChat[chatId] = structuredClone(NOVA_RELATIONSHIP_DEFAULTS);
+        }
+        const rel = store.relationshipsByChat[chatId];
+        if (!Array.isArray(rel.tracked)) rel.tracked = [];
+        if (!rel.data || typeof rel.data !== 'object') rel.data = {};
+        if (typeof rel.unreadCount !== 'number') rel.unreadCount = 0;
+        return rel;
     }
 
     function saveRelationshipSettings() {
