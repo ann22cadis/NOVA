@@ -2,6 +2,9 @@ import { generateRaw } from '../../../../script.js';
 import { NovaPrompts } from './prompts.js';
 import { Popup, POPUP_RESULT } from '../../../popup.js';
 import { saveBase64AsFile } from '../../../utils.js';
+// Живой биндинг: значение всегда актуальное, а не снимок на момент импорта.
+// Не приходит через getContext() — эта функция там его просто не отдаёт
+import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
 
 (async function() {
     console.log("[NOVA] Loading extension...");
@@ -4567,6 +4570,70 @@ sketch or construction lines.`,
         return formatted;
     }
 
+    // ---- Персоны юзера ----
+    //
+    // Раньше профиль юзера в соцсети жил под одним фиксированным ключом
+    // charProfiles['user_persona'] — общим на ВСЕ персоны Таверны сразу. Смена
+    // персоны в Таверне никак его не трогала: один и тот же ник/аватар/био
+    // висел везде. Теперь у каждой персоны Таверны — свой профиль, а сами
+    // профили (name/handle/desc/style/avatar_desc/custom_avatar/banner)
+    // по-прежнему живут в charProfiles, просто под id персоны из NOVA.personas,
+    // а не под общей строкой — это сохраняет весь механизм сохранения/аватарки/
+    // шапки в renderCharsTab нетронутым.
+
+    /** Живой ID аватарки активной СЕЙЧАС в Таверне персоны (не снимок). */
+    function currentPersonaAvatarId() {
+        return typeof livePersonaAvatarId === 'string' ? livePersonaAvatarId : '';
+    }
+
+    /** Список сохранённых NOVA-персон, с миграцией старого единственного профиля один раз. */
+    function getPersonasList() {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        if (!ctx?.extensionSettings) return [];
+        if (!ctx.extensionSettings.NOVA) ctx.extensionSettings.NOVA = {};
+        const store = ctx.extensionSettings.NOVA;
+        if (!Array.isArray(store.personas)) store.personas = [];
+        if (!store.charProfiles) store.charProfiles = {};
+
+        if (store.personas.length === 0 && store.charProfiles['user_persona']) {
+            const id = `persona_${Date.now()}`;
+            store.charProfiles[id] = store.charProfiles['user_persona'];
+            delete store.charProfiles['user_persona'];
+            store.personas.push({ id, avatarId: currentPersonaAvatarId() || null });
+        }
+        return store.personas;
+    }
+
+    /**
+     * Активная персона: явный пин (выбрана руками) важнее автоопределения,
+     * иначе — та, что привязана к персоне, реально выбранной сейчас в Таверне.
+     * Ничего не найдено — вызывающий код сам подставит live-имя из Таверны,
+     * как и раньше, до появления списка персон.
+     */
+    function getActivePersonaEntry() {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        const list = getPersonasList();
+        const pinnedId = ctx?.extensionSettings?.NOVA?.activePersonaId;
+        if (pinnedId) {
+            const pinned = list.find(p => p.id === pinnedId);
+            if (pinned) return pinned;
+        }
+        const avatarId = currentPersonaAvatarId();
+        return (avatarId && list.find(p => p.avatarId === avatarId)) || null;
+    }
+
+    /** Как getActivePersonaEntry, но заводит персону под текущую живую Таверна-персону, если её ещё нет. */
+    function ensureActivePersonaId() {
+        const existing = getActivePersonaEntry();
+        if (existing) return existing.id;
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        if (!ctx?.extensionSettings) return null;
+        const list = getPersonasList();
+        const id = `persona_${Date.now()}`;
+        list.push({ id, avatarId: currentPersonaAvatarId() || null });
+        return id;
+    }
+
     // Collect all active NPCs and characters (с учётом отключённых персонажей)
     function getActiveProfiles() {
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
@@ -4575,17 +4642,13 @@ sketch or construction lines.`,
         if (stContext) {
             const charProfiles = stContext.extensionSettings?.NOVA?.charProfiles || {};
             const { characters, groups, characterId, groupId } = stContext;
-            
+
             // User Persona
             const personaName = stContext.name1 || 'User';
-            let personaAvatarUrl = '';
-            if (typeof window !== 'undefined' && window.power_user && window.power_user.persona_avatar) {
-                personaAvatarUrl = window.power_user.persona_avatar;
-            } else {
-                personaAvatarUrl = stContext.user_avatar || stContext.avatar_url || '';
-            }
+            const personaAvatarUrl = currentPersonaAvatarId();
+            const activePersona = getActivePersonaEntry();
             if (personaName) {
-                const genProfile = charProfiles['user_persona'] || {};
+                const genProfile = (activePersona && charProfiles[activePersona.id]) || {};
                 let avatarUrl = personaAvatarUrl ? `/User Avatars/${personaAvatarUrl}` : '';
                 if (genProfile.custom_avatar) avatarUrl = genProfile.custom_avatar;
                 let h = genProfile.handle || `@${transliterate(personaName || 'user')}`;
@@ -5119,7 +5182,7 @@ sketch or construction lines.`,
             
             const stContext = SillyTavern.getContext();
             const activeProfiles = getActiveProfiles();
-            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || 'Вы', handle: '@user', avatar: stContext.avatar_url ? `/User Avatars/${stContext.avatar_url}` : '', color: '#1da1f2' };
+            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || 'Вы', handle: '@user', avatar: currentPersonaAvatarId() ? `/User Avatars/${currentPersonaAvatarId()}` : '', color: '#1da1f2' };
             
             // Держим ссылку на реплай юзера: ответы ИИ должны стать ЕГО веткой
             const userReply = {
@@ -6490,9 +6553,10 @@ sketch or construction lines.`,
         const { characters, groups, characterId, groupId } = stContext;
         const key = normHandle(handle);
 
-        const personaProfile = charProfiles['user_persona'] || {};
+        const activePersona = getActivePersonaEntry();
+        const personaProfile = (activePersona && charProfiles[activePersona.id]) || {};
         const personaHandle = personaProfile.handle || `@${transliterate(stContext.name1 || 'user')}`;
-        if (normHandle(personaHandle) === key) return 'user_persona';
+        if (normHandle(personaHandle) === key) return activePersona ? activePersona.id : ensureActivePersonaId();
 
         const matchChar = char => {
             const genProfile = charProfiles[char.avatar] || {};
@@ -7635,6 +7699,52 @@ sketch or construction lines.`,
             // Уходим из переписки — снимаем её тему, иначе её цвета останутся на
             // модалках подтверждения в ленте и других вкладках
             if ($overlay.attr('id') === 'nova-view-single-dm') clearDMThemeVars();
+        });
+
+        // Раскрытие/выбор в выпадающем списке персон
+        wireCustomSelects($('#nova-view-chars'));
+
+        $(document).on('click', '#nova-create-persona-btn', async () => {
+            const name = await novaPrompt('Новая персона', 'Название (необязательно)');
+            if (name === null) return;
+            const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();
+            if (!extensionSettings.NOVA) extensionSettings.NOVA = {};
+            const store = extensionSettings.NOVA;
+            if (!Array.isArray(store.personas)) store.personas = [];
+            if (!store.charProfiles) store.charProfiles = {};
+            const id = `persona_${Date.now()}`;
+            // Не привязана ни к какой персоне Таверны — самостоятельная, для ручного
+            // переключения. Привязывается автоматически, если вдруг совпадёт по аватарке
+            store.personas.push({ id, avatarId: null });
+            if (name && name.trim()) store.charProfiles[id] = { name: name.trim() };
+            store.activePersonaId = id;
+            saveSettingsDebounced();
+            renderCharsTab();
+            toastr.success('Персона создана');
+        });
+
+        $(document).off('click.novaPersonaList').on('click.novaPersonaList', '#nova-persona-list .nova-select-option', function() {
+            const id = String($(this).data('value') || '');
+            const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();
+            if (!id || id === extensionSettings.NOVA?.activePersonaId) return;
+            if (!extensionSettings.NOVA) extensionSettings.NOVA = {};
+            extensionSettings.NOVA.activePersonaId = id;
+            saveSettingsDebounced();
+            renderCharsTab();
+        });
+
+        $(document).on('click', '#nova-persona-delete-btn', () => {
+            const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();
+            const store = extensionSettings.NOVA || {};
+            const personaId = store.activePersonaId || getActivePersonaEntry()?.id;
+            if (!personaId) return;
+            novaConfirm('Удалить эту персону? Профиль (имя, ник, био) будет потерян.', () => {
+                store.personas = (store.personas || []).filter(p => p.id !== personaId);
+                if (store.charProfiles) delete store.charProfiles[personaId];
+                if (store.activePersonaId === personaId) store.activePersonaId = '';
+                saveSettingsDebounced();
+                renderCharsTab();
+            });
         });
 
         $(document).on('click', '#nova-create-folder-btn', async () => {
@@ -8918,9 +9028,19 @@ sketch or construction lines.`,
     });
 
 
+    /** Подпись персоны для выпадающего списка: своё имя, иначе — живое из Таверны/её реестра персон. */
+    function personaLabel(p, stContext, isLive) {
+        const personaName = stContext.name1 || 'User';
+        const charProfiles = stContext.extensionSettings?.NOVA?.charProfiles || {};
+        const saved = charProfiles[p.id]?.name;
+        return saved || (isLive ? personaName : (p.avatarId && stContext.powerUserSettings?.personas?.[p.avatarId])) || 'Персона';
+    }
+
     function renderCharsTab() {
         const $charList = $('#nova-chars-list');
+        const $personaSlot = $('#nova-persona-card-slot');
         $charList.empty();
+        $personaSlot.empty();
 
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (!stContext) {
@@ -8931,20 +9051,45 @@ sketch or construction lines.`,
         const charProfiles = stContext.extensionSettings?.NOVA?.charProfiles || {};
         const { characters, groups, characterId, groupId } = stContext;
         const isGroup = !!(groupId && groups);
-        
+
         const currentChars = [];
         try {
             const personaName = stContext.name1 || 'User';
-            const personaAvatarUrl = stContext.avatar_url || '';
-            currentChars.push({
-                name: personaName,
-                avatar: personaAvatarUrl,
-                description: '',
-                personality: '',
-                scenario: '',
-                _memberId: 'user_persona',
-                isUser: true
-            });
+            const liveAvatarId = currentPersonaAvatarId();
+            const personaList = getPersonasList();
+            // Гарантируем запись под ТЕКУЩЕЙ живой персоной Таверны — без этого
+            // именно тут и был исходный баг: один общий профиль на всех
+            if (liveAvatarId && !personaList.some(p => p.avatarId === liveAvatarId)) {
+                personaList.push({ id: `persona_${Date.now()}`, avatarId: liveAvatarId });
+            }
+            const activeEntry = getActivePersonaEntry();
+            const selectedId = activeEntry?.id || personaList[0]?.id || null;
+
+            // Список персон — компактным выпадающим списком (как пресеты/стили),
+            // а не карточкой на каждую: с большим числом персон карточки мешались бы
+            $('#nova-persona-select-wrap').html(personaList.length
+                ? buildCustomSelect('nova-persona-list', personaList.map(p => ({
+                    value: p.id,
+                    label: escapeHtml(personaLabel(p, stContext, !!p.avatarId && p.avatarId === liveAvatarId)),
+                })), selectedId)
+                : buildCustomSelect('nova-persona-list', [{ value: '', label: '— нет персон, создайте —' }], ''));
+            $('#nova-persona-delete-btn').prop('disabled', personaList.length === 0)
+                .css('opacity', personaList.length === 0 ? 0.5 : 1);
+
+            if (!selectedId) {
+                // Персона Таверны не определена вовсе — прежнее поведение как заглушка
+                currentChars.push({ name: personaName, avatar: '', _memberId: null, isUser: true });
+            } else {
+                const p = personaList.find(x => x.id === selectedId);
+                const isLive = !!p.avatarId && p.avatarId === liveAvatarId;
+                currentChars.push({
+                    name: isLive ? personaName : (p.avatarId && stContext.powerUserSettings?.personas?.[p.avatarId]) || 'Персона',
+                    avatar: p.avatarId || '',
+                    _memberId: p.id,
+                    isUser: true,
+                    _personaId: p.id,
+                });
+            }
 
             if (isGroup) {
                 const group = groups.find(g => g.id === groupId || String(g.id) === String(groupId));
@@ -8966,7 +9111,10 @@ sketch or construction lines.`,
             $charList.append('<div style="color: var(--nova-text-muted); font-size: 14px; text-align: center; padding: 12px;">Нет активных персонажей в чате.</div>');
         } else {
             currentChars.forEach(char => {
-                const memberId = char._memberId;
+                // Крайний случай: у Таверны вообще нет активной персоны (user_avatar
+                // пуст) — тогда currentChars получил заглушку без id. Заводим персону
+                // прямо тут, чтобы сохранение карточки было куда писать
+                const memberId = (char.isUser && !char._memberId) ? ensureActivePersonaId() : char._memberId;
                 const memberIdStr = String(memberId);
                 const genProfile = charProfiles[memberId];
                 
@@ -9208,7 +9356,7 @@ sketch or construction lines.`,
                     $(this).val('');
                 });
 
-                $charList.append($el);
+                (char.isUser ? $personaSlot : $charList).append($el);
             });
         }
     }
@@ -10124,8 +10272,15 @@ sketch or construction lines.`,
         migrateLegacySettings();
         loadSettings();
         loadFolders();
-        
 
+        // Персона в Таверне сменилась — активная NOVA-персона (если не запиннена
+        // руками) должна подхватиться сама, без переоткрытия панели
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        if (ctx?.eventSource && ctx?.eventTypes?.PERSONA_CHANGED) {
+            ctx.eventSource.on(ctx.eventTypes.PERSONA_CHANGED, () => {
+                if ($('#nova-view-chars').hasClass('active')) renderCharsTab();
+            });
+        }
     });
 
     // --- HISTORY TAB ---

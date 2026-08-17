@@ -77,8 +77,16 @@
             <!-- Chars View -->
             <div id="nova-view-chars" class="nova-tab-view">
                 <div style="padding: 16px;">
-                    <h2 style="margin-top:0">Персонажи чата</h2>
-                    <div id="nova-chars-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                    <h2 style="margin-top:0;">Мои персоны</h2>
+                    <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                        <div id="nova-persona-select-wrap" style="flex: 1; min-width: 0;"></div>
+                        <div class="nova-icon-btn" id="nova-create-persona-btn" title="Создать персону" style="background: var(--nova-surface-hover);"><i class="fa-solid fa-user-plus"></i></div>
+                        <div class="nova-icon-btn" id="nova-persona-delete-btn" title="Удалить персону" style="background: var(--nova-surface-hover);"><i class="fa-solid fa-trash"></i></div>
+                    </div>
+                    <div id="nova-persona-card-slot" style="margin-bottom: 24px;"></div>
+
+                    <h2 style="margin-top:0; border-top: 1px solid var(--nova-border); padding-top: 20px;">Персонажи чата</h2>
+                    <div id="nova-chars-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; margin-top: 12px;">
                         <div style="color: var(--nova-text-muted); font-size: 14px; text-align: center; padding: 12px;">Загрузка персонажей...</div>
                     </div>
 
