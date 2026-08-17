@@ -19,6 +19,11 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
 
     let feedPosts = [];
     let dmThreads = [];
+    // Какому чату реально принадлежит то, что сейчас в feedPosts/dmThreads — не
+    // обязательно текущему: chat_id_changed мог не долететь, а loadFeed() зовётся
+    // только при открытии панели. saveFeed() сверяется с этим перед записью —
+    // см. её же комментарий про защиту от затирания.
+    let loadedFeedChatId = null;
     // Виртуальные минуты ролевой игры. Реальное время тут не годится: между генерациями
     // в РП может пройти три дня, а по часам — пять минут.
     let rpClock = 0;
@@ -213,7 +218,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         });
     }
 
-    function novaConfirm(message, onConfirm) {
+    function novaConfirm(message, onConfirm, okLabel = 'Удалить', okColor = '#f44336') {
         const html = `
             <div id="nova-confirm-overlay" class="nova-folder-overlay active" style="z-index: 9999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,0.6);">
                 <div style="background: var(--nova-dm-card, var(--nova-surface)); border: 1px solid var(--nova-dm-border, var(--nova-border)); border-radius: 16px; padding: 24px; max-width: 320px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
@@ -221,7 +226,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
                     <div style="color: var(--nova-dm-card-text, var(--nova-text-muted)); opacity: 0.85; font-size: 15px; margin-bottom: 24px; line-height: 1.4;">${message}</div>
                     <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px;">
                         <button id="nova-confirm-cancel" style="flex: 1; background: var(--nova-dm-other-bubble, var(--nova-surface-hover)); color: var(--nova-dm-card-text, var(--nova-text)); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold; transition: 0.2s;">Отмена</button>
-                        <button id="nova-confirm-ok" style="flex: 1; background: #f44336; color: white; border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold; transition: 0.2s;">Удалить</button>
+                        <button id="nova-confirm-ok" style="flex: 1; background: ${okColor}; color: white; border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold; transition: 0.2s;">${escapeHtml(okLabel)}</button>
                     </div>
                 </div>
             </div>
@@ -324,14 +329,38 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         }
     }
 
+    /**
+     * Снимок ленты чата ДО того, как мы к ней прикоснёмся — на случай, если что-то
+     * в этой сессии её сломает. По снимку на каждое реальное изменение (сверяем по
+     * числу постов/переписок — дёшево и достаточно, чтобы не плодить дубликаты при
+     * частых переключениях туда-сюда без правок), максимум 5 штук на чат.
+     */
+    function backupChatFeedIfNeeded(chatId, entry) {
+        if (!entry) return;
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        if (!ctx?.extensionSettings) return;
+        if (!ctx.extensionSettings.NOVA) ctx.extensionSettings.NOVA = {};
+        const store = ctx.extensionSettings.NOVA;
+        if (!store.chatFeedBackups || typeof store.chatFeedBackups !== 'object') store.chatFeedBackups = {};
+        const list = store.chatFeedBackups[chatId] || (store.chatFeedBackups[chatId] = []);
+        const postsCount = (entry.feedPosts || []).length;
+        const threadsCount = (entry.dmThreads || []).length;
+        const last = list[list.length - 1];
+        if (last && last.postsCount === postsCount && last.threadsCount === threadsCount) return;
+        list.push({ time: Date.now(), postsCount, threadsCount, data: structuredClone(entry) });
+        while (list.length > 5) list.shift();
+    }
+
     function loadFeed() {
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (stContext) {
-            const chatId = (typeof window.chatId !== 'undefined') ? window.chatId : (stContext.chatId || 'default');
-            if (stContext.extensionSettings?.NOVA?.chatFeeds?.[chatId]) {
-                feedPosts = stContext.extensionSettings.NOVA.chatFeeds[chatId].feedPosts || [];
-                dmThreads = stContext.extensionSettings.NOVA.chatFeeds[chatId].dmThreads || [];
-                rpClock = Number(stContext.extensionSettings.NOVA.chatFeeds[chatId].rpClock) || 0;
+            const chatId = getCurrentChatId();
+            const entry = stContext.extensionSettings?.NOVA?.chatFeeds?.[chatId];
+            backupChatFeedIfNeeded(chatId, entry);
+            if (entry) {
+                feedPosts = entry.feedPosts || [];
+                dmThreads = entry.dmThreads || [];
+                rpClock = Number(entry.rpClock) || 0;
                 if (dmThreads.length > 0 && dmThreads[0].text !== undefined) {
                     dmThreads = []; // Сброс старого формата DMs
                 }
@@ -340,9 +369,11 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
                 dmThreads = [];
                 rpClock = 0;
             }
+            loadedFeedChatId = chatId;
         } else {
             feedPosts = [];
             dmThreads = [];
+            loadedFeedChatId = null;
         }
         applyLatestProfileInfoToPosts();
     }
@@ -481,13 +512,23 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
     function saveFeed() {
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (stContext) {
-            const chatId = (typeof window.chatId !== 'undefined') ? window.chatId : (stContext.chatId || 'default');
+            const chatId = getCurrentChatId();
             if (!stContext.extensionSettings.NOVA) stContext.extensionSettings.NOVA = {};
             if (!stContext.extensionSettings.NOVA.chatFeeds) stContext.extensionSettings.NOVA.chatFeeds = {};
+            // Защита от затирания: feedPosts/dmThreads в памяти могли остаться от
+            // ПРЕЖНЕГО чата, если он сменился без loadFeed() следом (событие смены
+            // чата не долетело, гонка при быстром переключении). Пишем под тот чат,
+            // которому эти данные реально принадлежат — иначе можно затереть чужую,
+            // настоящую ленту пустотой или чужой историей. chat_id_changed ниже это
+            // держит в норме почти всегда, тут — подстраховка на случай, если нет.
+            const targetChatId = loadedFeedChatId || chatId;
+            if (targetChatId !== chatId) {
+                console.warn('[NOVA] saveFeed(): в памяти данные другого чата — сохраняю под ним, а не под текущим', { loadedFeedChatId, chatId });
+            }
             // Храним КОПИИ, а не сами массивы: тут из них вырезаются аватарки, а живые
             // объекты в памяти должны остаться нетронутыми — на них смотрит весь рендер.
             const lookup = buildProfileLookup();
-            stContext.extensionSettings.NOVA.chatFeeds[chatId] = {
+            stContext.extensionSettings.NOVA.chatFeeds[targetChatId] = {
                 feedPosts: feedPosts.map(p => slimForStorage(p, lookup)),
                 dmThreads: dmThreads.map(t => slimForStorage(t, lookup)),
                 rpClock: rpClock
@@ -7420,6 +7461,7 @@ sketch or construction lines.`,
             }
             if (target === 'history') {
                 renderHistoryTab();
+                renderFeedBackups();
             }
             if (target === 'gallery') {
                 renderGalleryTab();
@@ -10321,6 +10363,19 @@ sketch or construction lines.`,
                 if ($('#nova-view-chars').hasClass('active')) renderCharsTab();
             });
         }
+
+        // Чат сменился — лента/ЛС/отношения в памяти иначе продолжают указывать на
+        // прежний чат до следующего открытия панели, а saveFeed() тем временем может
+        // затереть НОВЫЙ чат данными старого (см. защиту в saveFeed самой). loadFeed()
+        // тут держит loadedFeedChatId в норме почти всегда, а не только когда повезёт.
+        if (ctx?.eventSource && ctx?.eventTypes?.CHAT_CHANGED) {
+            ctx.eventSource.on(ctx.eventTypes.CHAT_CHANGED, () => {
+                loadFeed();
+                if ($('#nova-view-feed').hasClass('active')) renderFeed();
+                if ($('#nova-view-dms').hasClass('active')) renderDMs();
+                updateRelationshipBadge();
+            });
+        }
     });
 
     // --- HISTORY TAB ---
@@ -10654,6 +10709,50 @@ sketch or construction lines.`,
                 renderRelationshipsTab();
             });
         });
+    }
+
+    function renderFeedBackups() {
+        const $list = $('#nova-feed-backups-list');
+        if (!$list.length) return;
+        $list.empty();
+
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        const chatId = getCurrentChatId();
+        const backups = ctx?.extensionSettings?.NOVA?.chatFeedBackups?.[chatId] || [];
+        if (!backups.length) {
+            $list.append('<div style="color: var(--nova-text-muted); font-size: 13px;">Пока нет резервных копий для этого чата.</div>');
+            return;
+        }
+        // Новые сверху — так актуальные варианты восстановления видно без прокрутки
+        backups.forEach((b, idx) => {
+            const date = new Date(b.time).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const $row = $(`
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; background: var(--nova-surface-hover); border-radius:8px; font-size:13px;">
+                    <span>${date} — ${b.postsCount} постов, ${b.threadsCount} переписок</span>
+                    <button class="nova-feed-backup-restore-btn" style="background: var(--nova-accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; flex-shrink:0;">Восстановить</button>
+                </div>`);
+            $row.find('.nova-feed-backup-restore-btn').on('click', () => restoreFeedBackup(chatId, idx));
+            $list.prepend($row);
+        });
+    }
+
+    function restoreFeedBackup(chatId, idx) {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        const backups = ctx?.extensionSettings?.NOVA?.chatFeedBackups?.[chatId] || [];
+        const backup = backups[idx];
+        if (!backup) return;
+        const date = new Date(backup.time).toLocaleString('ru-RU');
+        novaConfirm(`Восстановить снимок от ${date} (${backup.postsCount} постов, ${backup.threadsCount} переписок)? Текущее состояние ленты и переписки в этом чате будет заменено.`, () => {
+            if (!ctx.extensionSettings.NOVA.chatFeeds) ctx.extensionSettings.NOVA.chatFeeds = {};
+            ctx.extensionSettings.NOVA.chatFeeds[chatId] = structuredClone(backup.data);
+            ctx.saveSettingsDebounced();
+            if (chatId === getCurrentChatId()) {
+                loadFeed();
+                renderFeed();
+                renderDMs();
+            }
+            toastr.success('Лента восстановлена из резервной копии');
+        }, 'Восстановить', 'var(--nova-accent)');
     }
 
     function renderHistoryTab() {

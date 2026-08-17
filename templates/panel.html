@@ -155,6 +155,14 @@
                         </div>
                     </div>
 
+                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
+                        <div style="font-weight: 700; font-size: 16px; border-bottom: 1px solid var(--nova-border); padding-bottom: 8px;">Резервные копии ленты этого чата</div>
+                        <div style="font-size: 14px; color: var(--nova-text-muted);">
+                            Снимок сохраняется автоматически при каждом открытии этого чата, если лента с прошлого раза изменилась — до 5 штук. Если лента или переписка вдруг пропали, можно откатиться сюда.
+                        </div>
+                        <div id="nova-feed-backups-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                    </div>
+
                     <div id="nova-history-list" style="display: flex; flex-direction: column; gap: 12px;">
                         <!-- Dynamically filled -->
                     </div>
