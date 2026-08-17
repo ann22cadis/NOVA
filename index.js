@@ -258,6 +258,19 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (stContext && stContext.extensionSettings?.NOVA?.customFolders) {
             customFolders = stContext.extensionSettings.NOVA.customFolders;
+            // Раньше папка держала ОДИН chatId — активация в новом чате перепривязывала
+            // папку туда и молча выкидывала из старого. Переносим на список chatIds:
+            // папка теперь активна в КАЖДОМ чате, где её когда-либо активировали, разом
+            customFolders.forEach(f => {
+                if (Array.isArray(f.chatIds)) return; // уже мигрировано
+                if (typeof f.chatId === 'string' && f.chatId) {
+                    // 'archive_...' — старый хак для «убрать из архива вручную»: папка
+                    // не привязана ни к одному чату
+                    f.chatIds = f.chatId.startsWith('archive_') ? [] : [f.chatId];
+                } else {
+                    f.chatIds = null; // никогда не была привязана — видна везде, как раньше
+                }
+            });
         }
         if (stContext && stContext.extensionSettings?.NOVA?.defaultFolderState) {
             const state = stContext.extensionSettings.NOVA.defaultFolderState;
@@ -4706,8 +4719,8 @@ sketch or construction lines.`,
 
         const currentChatId = stContext ? stContext.chatId : null;
 
-        // 3. Custom Folders (only active ones for the current chat, or global ones without a chatId)
-        customFolders.filter(f => f.active && (!f.chatId || f.chatId === currentChatId)).forEach(f => {
+        // 3. Custom Folders (only active ones for the current chat, or global ones без привязки)
+        customFolders.filter(f => f.active && (!f.chatIds || f.chatIds.includes(currentChatId))).forEach(f => {
             f.npcs.filter(n => n.active).forEach(n => {
                 active.push({ type: 'npc', name: n.name, handle: n.handle, avatar: n.avatar, banner: n.banner || null, desc: n.desc, style: n.style, color: n.color });
             });
@@ -7231,7 +7244,7 @@ sketch or construction lines.`,
                 id: 'folder_' + Date.now(),
                 name: parsed.folder_name || 'Сгенерированные NPC',
                 icon: 'fa-robot',
-                chatId: stContext.chatId,
+                chatIds: [stContext.chatId],
                 active: true,
                 npcs: parsed.npcs.map((n, i) => ({
                     id: 'npc_' + Date.now() + '_' + i,
@@ -7756,7 +7769,7 @@ sketch or construction lines.`,
                     name: folderName,
                     icon: 'fa-folder',
                     active: true,
-                    chatId: stContext.chatId,
+                    chatIds: [stContext.chatId],
                     npcs: []
                 };
                 customFolders.push(newFolder);
@@ -9810,7 +9823,7 @@ sketch or construction lines.`,
         const allFolders = [defaultFolder, ...customFolders];
         
         allFolders.forEach(folder => {
-            const isArchive = folder.chatId && currentChatId && folder.chatId !== currentChatId;
+            const isArchive = Array.isArray(folder.chatIds) && currentChatId && !folder.chatIds.includes(currentChatId);
             
             const checkedAttr = folder.active ? 'checked' : '';
             const isCustom = folder.id !== 'default';
@@ -9843,7 +9856,10 @@ sketch or construction lines.`,
             if (isArchive) {
                 $el.find('.nova-folder-unarchive-btn').on('click', (e) => {
                     e.stopPropagation();
-                    folder.chatId = currentChatId;
+                    // Добавляем этот чат к списку — папка остаётся активной и во всех,
+                    // где уже была, а не переезжает сюда одна
+                    if (!Array.isArray(folder.chatIds)) folder.chatIds = [];
+                    if (!folder.chatIds.includes(currentChatId)) folder.chatIds.push(currentChatId);
                     saveFolders();
                     toastr.success(`Папка "${folder.name}" добавлена в этот чат`);
                     renderProfilesTab();
@@ -9874,7 +9890,10 @@ sketch or construction lines.`,
             if (isCustom && !isArchive) {
                 $el.find('.nova-folder-move-archive-btn').on('click', (e) => {
                     e.stopPropagation();
-                    folder.chatId = 'archive_' + Date.now(); // Send to archive by changing chatId
+                    // Убираем только текущий чат из списка — в остальных, где папка
+                    // была активна, она активной и остаётся
+                    folder.chatIds = (Array.isArray(folder.chatIds) ? folder.chatIds : [])
+                        .filter(id => id !== currentChatId);
                     saveFolders();
                     toastr.success(`Папка "${folder.name}" перемещена в Архив`);
                     renderProfilesTab();
