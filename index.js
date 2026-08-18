@@ -188,13 +188,22 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         });
     }
 
-    function novaPrompt(title, placeholder = '', type = 'text') {
+    /**
+     * @param {boolean} multiline — поле в несколько строк вместо одной. Enter тогда
+     *   переносит строку, а не подтверждает (иначе многострочный ввод невозможен),
+     *   подтверждение — кнопкой или Ctrl/Cmd+Enter.
+     */
+    function novaPrompt(title, placeholder = '', type = 'text', multiline = false) {
         return new Promise(resolve => {
+            const fieldStyle = 'width: 100%; box-sizing: border-box; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 12px 14px; border-radius: 10px; outline: none; font-size: 15px; font-family: inherit; margin-bottom: 20px;';
+            const field = multiline
+                ? `<textarea id="nova-prompt-input" rows="3" class="nova-autogrow" placeholder="${placeholder}" style="${fieldStyle}"></textarea>`
+                : `<input id="nova-prompt-input" type="${type}" placeholder="${placeholder}" style="${fieldStyle}">`;
             const html = `
                 <div id="nova-prompt-overlay" class="nova-folder-overlay active" style="z-index: 9999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,0.6);">
                     <div style="background: var(--nova-surface); border: 1px solid var(--nova-border); border-radius: 16px; padding: 24px; max-width: 320px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
                         <div style="font-weight: bold; font-size: 18px; margin-bottom: 16px; color: var(--nova-text);">${title}</div>
-                        <input id="nova-prompt-input" type="${type}" placeholder="${placeholder}" style="width: 100%; box-sizing: border-box; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 12px 14px; border-radius: 10px; outline: none; font-size: 15px; font-family: inherit; margin-bottom: 20px;">
+                        ${field}
                         <div style="display: flex; gap: 12px;">
                             <button id="nova-prompt-cancel" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">Отмена</button>
                             <button id="nova-prompt-ok" style="flex: 1; background: var(--nova-accent); color: white; border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">Готово</button>
@@ -211,7 +220,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
             $('#nova-prompt-cancel').on('click', () => close(null));
             $('#nova-prompt-ok').on('click', () => close($input.val()));
             $input.on('keydown', e => {
-                if (e.key === 'Enter') close($input.val());
+                if (e.key === 'Enter' && (!multiline || e.ctrlKey || e.metaKey)) close($input.val());
                 if (e.key === 'Escape') close(null);
             });
             $overlay.on('click', e => { if (e.target === $overlay[0]) close(null); });
@@ -7292,11 +7301,11 @@ sketch or construction lines.`,
         renderFeed();
     }
 
-    async function generateNPCFolder() {
+    async function generateNPCFolder(note = '') {
         toastr.info("ИИ анализирует мир для создания NPC...");
-        
+
         const chatContext = await getChatContext();
-        const prompt = NovaPrompts.generateNPCFolder(chatContext);
+        const prompt = NovaPrompts.generateNPCFolder(chatContext, note);
 
         try {
             const parsed = await callAIForJson(prompt, [], d => d && d.folder_name && d.npcs);
@@ -7842,8 +7851,17 @@ sketch or construction lines.`,
             }
         });
 
-        $(document).on('click', '#nova-generate-npc-btn', () => {
-            generateNPCFolder();
+        $(document).on('click', '#nova-generate-npc-btn', async () => {
+            // Пустая строка — обычная генерация по контексту, как раньше. Отмена
+            // (null) — не генерируем вовсе, иначе кнопка «Отмена» тратила бы запрос
+            const note = await novaPrompt(
+                'Сгенерировать NPC',
+                'Указания (необязательно): кого добавить, сколько, какие они...',
+                'text',
+                true,
+            );
+            if (note === null) return;
+            generateNPCFolder(note);
         });
         
         // Manual NPC Creation

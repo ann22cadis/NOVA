@@ -416,8 +416,16 @@ INSTRUCTIONS:
     /**
      * Generate an NPC folder based on chat context.
      * @param {string} chatContext — context from chat
+     * @param {string} note — необязательное указание пользователя (ООС): чего он
+     *   хочет от этой пачки NPC. Идёт ПОСЛЕ контекста и правил, но перед форматом
+     *   вывода — так оно перебивает общие правила, не ломая контракт JSON.
      */
-    generateNPCFolder(chatContext) {
+    generateNPCFolder(chatContext, note = '') {
+        const noteBlock = String(note || '').trim() ? `
+
+DIRECT INSTRUCTION FROM THE PLAYER — this is an out-of-character request about the NPCs you are about to create. It OVERRIDES the general guidance above wherever they disagree (how many NPCs, who they should be, their tone, the theme of the folder). Follow it literally, but keep the output format and the language rules intact:
+${String(note).trim()}` : '';
+
         return `You are a creative AI. Carefully analyze the CURRENT RP CONTEXT below:
 - Pay special attention to the USER PERSONA — this describes the player.
 - Pay special attention to the CHARACTER CARDS — these are the main actors in the story.
@@ -450,7 +458,7 @@ INSTRUCTIONS:
    - "desc": A short description of who they are and what they post IN RUSSIAN. For a harvested person, STATE THEIR CONNECTION explicitly — who they are to the characters and what the RP said about them (e.g. «Сестра Ло, та самая, что упоминалась в ссоре»). For an invented one, tie them to the setting.
    - "style": Their posting style IN RUSSIAN (e.g., "all caps, aggressive", "lots of emojis", "passive-aggressive").
    - "seed": A single English word (e.g., "dragon", "neon", "cat", "knight") for avatar generation.
-   - "color": A HEX color fitting this character (e.g., "#ff5733").
+   - "color": A HEX color fitting this character (e.g., "#ff5733").${noteBlock}
 
 OUTPUT FORMAT:
 {
