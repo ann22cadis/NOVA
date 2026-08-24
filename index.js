@@ -3845,6 +3845,75 @@ sketch or construction lines.`,
         }
     }
 
+    // Поля, в которых может лежать картинка. Новые всегда пишутся файлом (см.
+    // uploadNovaImage), так что base64 тут — это только наследие старых версий:
+    // аватарки и шапки профилей, обои и превью стилей, картинки референсов,
+    // предложенные аватарки в переписке. Список именно белый, а не «любая строка
+    // с data:image» — чтобы уборка трогала ровно то, что мы проверили глазами.
+    const NOVA_AVATAR_FIELDS = ['avatar', 'custom_avatar', 'banner', 'image', 'thumbnail', 'wallpaper', 'preview'];
+    const isBase64Image = v => typeof v === 'string' && v.startsWith('data:image/') && v.includes('base64,');
+
+    /**
+     * Разовая уборка: аватарки/шапки, загруженные до появления storeProfileImage
+     * (или переставшие совпадать с профилем после смены аватарки — см. комментарий
+     * у slimForStorage), всё ещё лежат в настройках как base64-строки, зачастую
+     * одна и та же — десятками копий сразу в нескольких местах (в самом профиле,
+     * в старых постах ленты, и ещё раз в резервных копиях этой ленты).
+     *
+     * Загружает каждую УНИКАЛЬНУЮ картинку файлом ровно один раз, затем проходит
+     * по всему дереву настроек NOVA и подменяет каждое совпадающее вхождение на
+     * путь к файлу. Ничего не удаляет и не оценивает "нужна ли ещё эта аватарка" —
+     * просто перестаёт хранить один и тот же файл по многу раз текстом.
+     */
+    async function compactStorage() {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        const nova = ctx?.extensionSettings?.NOVA;
+        if (!nova) return { uniqueImages: 0, fieldsUpdated: 0 };
+
+        const uniqueImages = new Set();
+        (function collect(obj, seen) {
+            if (!obj || typeof obj !== 'object') return;
+            if (seen.has(obj)) return;
+            seen.add(obj);
+            if (Array.isArray(obj)) { obj.forEach(v => collect(v, seen)); return; }
+            for (const [key, v] of Object.entries(obj)) {
+                if (NOVA_AVATAR_FIELDS.includes(key) && isBase64Image(v)) uniqueImages.add(v);
+                else if (v && typeof v === 'object') collect(v, seen);
+            }
+        })(nova, new WeakSet());
+
+        if (uniqueImages.size === 0) return { uniqueImages: 0, fieldsUpdated: 0 };
+
+        const pathMap = new Map();
+        for (const dataUrl of uniqueImages) {
+            try {
+                pathMap.set(dataUrl, await storeProfileImage(dataUrl));
+            } catch (e) {
+                console.warn('[NOVA] compactStorage: не удалось загрузить картинку', e);
+            }
+        }
+
+        let fieldsUpdated = 0;
+        (function replace(obj, seen) {
+            if (!obj || typeof obj !== 'object') return;
+            if (seen.has(obj)) return;
+            seen.add(obj);
+            if (Array.isArray(obj)) { obj.forEach(v => replace(v, seen)); return; }
+            for (const key of Object.keys(obj)) {
+                const v = obj[key];
+                if (NOVA_AVATAR_FIELDS.includes(key) && pathMap.has(v)) {
+                    obj[key] = pathMap.get(v);
+                    fieldsUpdated++;
+                } else if (v && typeof v === 'object') {
+                    replace(v, seen);
+                }
+            }
+        })(nova, new WeakSet());
+
+        if (fieldsUpdated > 0) ctx.saveSettingsDebounced();
+        return { uniqueImages: pathMap.size, fieldsUpdated };
+    }
+
     /**
      * Уменьшенная копия картинки для превью в ленте/DM/галерее: пост сгенерирован
      * в 1К-4К, а превью в разметке не крупнее ~340px (лента) или ~150px (галерея) —
@@ -7596,6 +7665,26 @@ sketch or construction lines.`,
         });
 
         $('#nova-thinking-budget').on('change', updateThinkingBadge);
+
+        $('#nova-compact-storage-btn').on('click', async function() {
+            const $btn = $(this);
+            const $result = $('#nova-compact-storage-result');
+            if ($btn.prop('disabled')) return;
+            $btn.prop('disabled', true).find('i').addClass('fa-spin');
+            $result.text('Ищу дубликаты...');
+            try {
+                const { uniqueImages, fieldsUpdated } = await compactStorage();
+                $result.text(uniqueImages === 0
+                    ? 'Ничего не нашлось — всё уже хранится файлами.'
+                    : `Готово: ${uniqueImages} картинок перенесено в файлы, заменено ${fieldsUpdated} вхождений.`);
+                if (fieldsUpdated > 0) toastr.success('Хранилище сжато', 'NOVA');
+            } catch (e) {
+                console.error('[NOVA] compactStorage failed', e);
+                $result.text('Не получилось: ' + String(e.message || e));
+            } finally {
+                $btn.prop('disabled', false).find('i').removeClass('fa-spin');
+            }
+        });
 
         $('#nova-save-settings-btn').on('click', () => {
             const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();

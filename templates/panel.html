@@ -329,6 +329,17 @@
                     
                     <!-- Sync group moved to History tab -->
 
+                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
+                        <div style="font-weight: 700; font-size: 16px; border-bottom: 1px solid var(--nova-border); padding-bottom: 8px;">Хранилище</div>
+                        <div style="font-size: 14px; color: var(--nova-text-muted);">
+                            Аватарки, загруженные до перехода на хранение файлом, а также их старые копии в ленте и переписке — переносит в файлы и убирает дубли, ничего не удаляя безвозвратно.
+                        </div>
+                        <button id="nova-compact-storage-btn" style="width: 100%; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i class="fa-solid fa-broom"></i> Проверить и сжать
+                        </button>
+                        <div id="nova-compact-storage-result" style="font-size: 13px; color: var(--nova-text-muted);"></div>
+                    </div>
+
                     <div style="margin-top: auto; padding-top: 20px;">
                         <button id="nova-save-settings-btn" style="width: 100%; background: var(--nova-accent); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             <i class="fa-solid fa-floppy-disk"></i> Сохранить настройки
