@@ -7304,41 +7304,62 @@ sketch or construction lines.`,
 
                 if (!thread) thread = dmThreads.find(t => !t.isGroup && normHandle(t.handle) === normHandle(profile.handle));
 
-                if (!thread) {
-                    thread = {
-                        name: profile.name,
-                        handle: profile.handle,
-                        avatar: profile.avatar,
-                        color: profile.color,
-                        unread: 0,
-                        messages: []
-                    };
-                    dmThreads.unshift(thread);
-                } else {
-                    dmThreads = dmThreads.filter(t => t !== thread);
-                    dmThreads.unshift(thread);
-                }
+                // Личная переписка — разговор РОВНО ДВОИХ: игрока и владельца треда.
+                // Модель регулярно присылает сюда болтовню персонажей МЕЖДУ СОБОЙ
+                // («[@kid]: ты видел? [@bepo]: ага»), и раньше это раскладывалось в
+                // личку игрока от чужого имени: ему приходило то, что адресовано не ему.
+                // В группе третий голос законен — там участников много, режем только
+                // один на один. Тред при этом ещё НЕ создан и не поднят наверх: если
+                // после отсева писать нечего, список сообщений не должен даже дрогнуть.
+                const ownerHandle = thread ? thread.handle : profile.handle;
+                const isGroupThread = !!thread?.isGroup;
+
                 // В одном text может лежать целая перепалка с пометками [@handle] —
                 // раскладываем её на отдельные сообщения от нужных участников
-                splitMultiSpeakerText(data.dm.text).forEach(chunk => {
+                const chunks = splitMultiSpeakerText(data.dm.text).map(chunk => {
                     const chunkProfile = chunk.handle
                         ? resolveAuthorProfile(chunk.handle, activeProfiles, null)
                         : profile;
+                    if (!isGroupThread && normHandle(chunkProfile.handle) !== normHandle(ownerHandle)) {
+                        console.warn('[NOVA] В личный тред', ownerHandle, 'пришла реплика от', chunkProfile.handle, '— это разговор персонажей между собой, пропускаем');
+                        return null;
+                    }
                     const text = stripInlineSenderPrefix(chunk.text, chunkProfile.handle);
-                    if (!text) return;
-                    thread.messages.push({
-                        // Имя и хэндл автора обязательны: в группе подпись берётся именно отсюда,
-                        // а без них рендер показывал служебное «npc»
-                        text,
-                        sender: 'npc',
-                        sender_name: chunkProfile.name,
-                        sender_handle: chunkProfile.handle,
-                        time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                    return text ? { profile: chunkProfile, text } : null;
+                }).filter(Boolean);
+
+                if (chunks.length) {
+                    if (!thread) {
+                        thread = {
+                            name: profile.name,
+                            handle: profile.handle,
+                            avatar: profile.avatar,
+                            color: profile.color,
+                            unread: 0,
+                            messages: []
+                        };
+                        dmThreads.unshift(thread);
+                    } else {
+                        dmThreads = dmThreads.filter(t => t !== thread);
+                        dmThreads.unshift(thread);
+                    }
+
+                    chunks.forEach(({ profile: chunkProfile, text }) => {
+                        thread.messages.push({
+                            // Имя и хэндл автора обязательны: в группе подпись берётся именно отсюда,
+                            // а без них рендер показывал служебное «npc»
+                            text,
+                            sender: 'npc',
+                            sender_name: chunkProfile.name,
+                            sender_handle: chunkProfile.handle,
+                            time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                        });
+                        thread.unread += 1;
                     });
-                    thread.unread += 1;
-                });
-                toastr.success(`Новое сообщение от ${profile.name}${thread.isGroup ? ` в «${thread.name}»` : ''}!`);
-                updateUnreadBadge();
+
+                    toastr.success(`Новое сообщение от ${profile.name}${thread.isGroup ? ` в «${thread.name}»` : ''}!`);
+                    updateUnreadBadge();
+                }
             }
 
             saveFeed();

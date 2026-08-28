@@ -291,7 +291,8 @@ ${actionSection}
 
 ${recentDMsContext ? `RECENT DM HISTORY (Current private conversations):\n${recentDMsContext}\n\n-> IMPORTANT: If you choose to generate a "dm", it MUST logically continue the conversation based on the history above, or be a highly relevant reaction to the current RP scene. Do not generate random/empty messages just to say hi. If there is no strong reason to send a DM right now, return null for "dm".
 -> Entries marked GROUP CHAT are group conversations with a name and a member list. To write into one, set "group_handle" to its group_handle AND "author_handle" to the specific member who is speaking. Address the group by its name and stay on whatever the group is actually about.
--> NEVER write the speaker's name or handle inside "text" — the app renders the sender itself. Text starting with something like "[@someone]:" is a FAILURE.` : `-> If someone has an urgent secret reaction to the events, you may generate a "dm". Otherwise return null.`}
+-> A "dm" WITHOUT a "group_handle" is a one-on-one private chat between "author_handle" and ${userHandle} — nobody else can see it or speak in it. Write it as that character talking TO ${userHandle} directly. Characters gossiping with EACH OTHER does not belong here: put that in a group chat, or in the replies under a post. A one-on-one "dm" whose text is aimed at a third person, or which contains lines from more than one speaker, is a FAILURE.
+-> NEVER write the speaker's name or handle inside "text" — the app renders the sender itself. Text starting with something like "[@someone]:" is a FAILURE.` : `-> If someone has an urgent secret reaction to the events, you may generate a "dm". Otherwise return null. A "dm" without a "group_handle" is a private one-on-one message written TO ${userHandle} — not two characters talking to each other.`}
 
 STRICT JSON FORMAT:
 {
