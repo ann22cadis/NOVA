@@ -9749,23 +9749,45 @@ sketch or construction lines.`,
         console.log(`[NOVA] Loaded ${profileNames.length} connection profiles.`);
     }
 
-    // Эталонный набор NPC папки Default — нужен для кнопки «Вернуть стандартных»
+    // Эталонный набор NPC папки Default — нужен для кнопки «Вернуть стандартных».
+    // name/desc/style — контент ролевой, поэтому у каждого NPC своя ru- и en-версия;
+    // остальные поля (handle/avatar/color) языка не имеют и одни на оба варианта.
     const DEFAULT_NPCS_SEED = [
-            { id: 'n1', name: 'котик щитпостер', handle: '@meow_irl', avatar: 'https://i.postimg.cc/cJ6BPnS1/faa1669c512626a8317925d204d3f92a.jpg', color: '#ff9800', desc: 'Постит абстрактные мемы, картинки с котами и экзистенциальный кризис.', style: 'всё с маленькой буквы, жиза, постирония', active: true },
-            { id: 'n2', name: 'Global Updates', handle: '@breaking_now', avatar: 'https://i.postimg.cc/x8HWVZL5/3e4fbb3d4cff3808056b9a6f050c0234.jpg', color: '#e91e63', desc: 'Агрегатор новостей. Постит сухие факты о том, что происходит в мире.', style: 'Официальный тон, срочные новости, 🚨 BREAKING 🚨', active: true },
-            { id: 'n3', name: 'Actually...', handle: '@logic_enjoyer', avatar: 'https://i.postimg.cc/B6bDj96Y/103224cfd2aeca0001e3e9f9c7c2e9c1.jpg', color: '#607d8b', desc: 'Reply Guy. Приходит в чужие треды только для того, чтобы доказать, что автор не прав.', style: 'Начинает с "Технически...", ссылки на статьи, полное отсутствие эмпатии.', active: true },
-            { id: 'n4', name: 'Spark', handle: '@main_character', avatar: 'https://i.postimg.cc/7ZLmgcbp/70c3e7f7a1a418bf56d7c62bd546b97e.jpg', color: '#ffb300', desc: 'Синдром главного героя. Уверен, что любое событие в мире происходит из-за него или ради него.', style: 'Постоянно пишет про себя, драматизирует, "Я не могу поверить, что это случилось СО МНОЙ".', active: true },
-            { id: 'n5', name: 'Альфа-Мыслитель', handle: '@based_sigma', avatar: 'https://i.postimg.cc/rmymmShL/63e874716b41b8f6cb1f6aaf97db9088.jpg', color: '#e53935', desc: 'Уверен, что женщины созданы для обслуживания мужчин. Агрессивно доказывает это в каждом треде, прикрываясь "биологией" и "природой".', style: 'Псевдонаучный сексизм, снобизм, обращается к женщинам "милочка". Часто приплетает эволюцию, обесценивает чужое мнение.', active: true },
-            { id: 'n6', name: 'delusional era ✨', handle: '@brainrot_diary', avatar: 'https://i.postimg.cc/d3qSg0t4/a1f9350400f3aa252b05c7694afc108e.jpg', color: '#4caf50', desc: 'Ведет этот аккаунт исключительно ради своей гиперфиксации на Главном Герое (юзере). Пишет AU-зарисовки в телефоне и выкладывает их скриншотами. Готова отменить любого, кто криво посмотрит на её краша. Живет в выдуманных сценариях 24/7.', style: 'Эмоциональные качели. Постоянный спам буквами от переизбытка чувств (ахвхахвх), избыток плачущих и блестящих эмодзи (😭🤧✨💖). Использует фразы: «я буквально кричу», «почему он такой софт», «я не доживу до завтра».', active: true },
-            { id: 'n7', name: 'nanami simp ☕', handle: '@nanami_apologist', avatar: 'https://i.postimg.cc/44q98SLd/9455e255421738e576534e9b80ae70d8.jpg', color: '#3f51b5', desc: 'Циничная лучшая подруга @brainrot_diary. В своей ленте постоянно жалуется на выгорание, симпит Нанами Кенто и регулярно напоминает подписчикам, что Годжо Сатору переоценен. Однако, как только первая девочка постит что-то про юзера, она тут же врывается в реплаи, чтобы агрессивно её поддержать.', style: 'Сухой сарказм, постирония, мемы по Магической Битве. Резко переключается на капс, когда комментирует посты подруги. Часто жалуется на усталость и отсутствие логики у других людей в ленте.', active: true }
+            { id: 'n1', handle: '@meow_irl', avatar: 'https://i.postimg.cc/cJ6BPnS1/faa1669c512626a8317925d204d3f92a.jpg', color: '#ff9800', active: true,
+                ru: { name: 'котик щитпостер', desc: 'Постит абстрактные мемы, картинки с котами и экзистенциальный кризис.', style: 'всё с маленькой буквы, жиза, постирония' },
+                en: { name: 'shitposter cat', desc: 'Posts abstract memes, cat pictures, and existential crises.', style: 'everything lowercase, deadpan realism, post-irony' } },
+            { id: 'n2', handle: '@breaking_now', avatar: 'https://i.postimg.cc/x8HWVZL5/3e4fbb3d4cff3808056b9a6f050c0234.jpg', color: '#e91e63', active: true,
+                ru: { name: 'Global Updates', desc: 'Агрегатор новостей. Постит сухие факты о том, что происходит в мире.', style: 'Официальный тон, срочные новости, 🚨 BREAKING 🚨' },
+                en: { name: 'Global Updates', desc: 'A news aggregator. Posts dry facts about what is happening in the world.', style: 'Official tone, breaking news, 🚨 BREAKING 🚨' } },
+            { id: 'n3', handle: '@logic_enjoyer', avatar: 'https://i.postimg.cc/B6bDj96Y/103224cfd2aeca0001e3e9f9c7c2e9c1.jpg', color: '#607d8b', active: true,
+                ru: { name: 'Actually...', desc: 'Reply Guy. Приходит в чужие треды только для того, чтобы доказать, что автор не прав.', style: 'Начинает с "Технически...", ссылки на статьи, полное отсутствие эмпатии.' },
+                en: { name: 'Actually...', desc: 'A reply guy. Shows up in other people\'s threads solely to prove the author wrong.', style: 'Starts with "Actually...", links to articles, a complete absence of empathy.' } },
+            { id: 'n4', handle: '@main_character', avatar: 'https://i.postimg.cc/7ZLmgcbp/70c3e7f7a1a418bf56d7c62bd546b97e.jpg', color: '#ffb300', active: true,
+                ru: { name: 'Spark', desc: 'Синдром главного героя. Уверен, что любое событие в мире происходит из-за него или ради него.', style: 'Постоянно пишет про себя, драматизирует, "Я не могу поверить, что это случилось СО МНОЙ".' },
+                en: { name: 'Spark', desc: 'Main character syndrome. Convinced every event in the world happens because of them, or for them.', style: 'Constantly writes about themselves, dramatizes everything, "I can\'t believe this happened to ME".' } },
+            { id: 'n5', handle: '@based_sigma', avatar: 'https://i.postimg.cc/rmymmShL/63e874716b41b8f6cb1f6aaf97db9088.jpg', color: '#e53935', active: true,
+                ru: { name: 'Альфа-Мыслитель', desc: 'Уверен, что женщины созданы для обслуживания мужчин. Агрессивно доказывает это в каждом треде, прикрываясь "биологией" и "природой".', style: 'Псевдонаучный сексизм, снобизм, обращается к женщинам "милочка". Часто приплетает эволюцию, обесценивает чужое мнение.' },
+                en: { name: 'Based Sigma', desc: 'Convinced women exist to serve men. Aggressively argues this in every thread, hiding behind "biology" and "nature".', style: 'Pseudo-scientific sexism, condescension, calls women "sweetheart". Frequently drags in evolution, dismisses other people\'s opinions.' } },
+            { id: 'n6', handle: '@brainrot_diary', avatar: 'https://i.postimg.cc/d3qSg0t4/a1f9350400f3aa252b05c7694afc108e.jpg', color: '#4caf50', active: true,
+                ru: { name: 'delusional era ✨', desc: 'Ведет этот аккаунт исключительно ради своей гиперфиксации на Главном Герое (юзере). Пишет AU-зарисовки в телефоне и выкладывает их скриншотами. Готова отменить любого, кто криво посмотрит на её краша. Живет в выдуманных сценариях 24/7.', style: 'Эмоциональные качели. Постоянный спам буквами от переизбытка чувств (ахвхахвх), избыток плачущих и блестящих эмодзи (😭🤧✨💖). Использует фразы: «я буквально кричу», «почему он такой софт», «я не доживу до завтра».' },
+                en: { name: 'delusional era ✨', desc: 'Runs this account purely for their hyperfixation on the Main Character (the user). Writes AU snippets on their phone and posts them as screenshots. Ready to cancel anyone who so much as looks at their crush wrong. Lives in made-up scenarios 24/7.', style: 'Emotional rollercoaster. Constant spam of letters from an overflow of feelings (ahhhhh), excessive crying and sparkly emojis (😭🤧✨💖). Uses phrases like: "I\'m literally screaming", "why is he so soft", "I will not survive until tomorrow".' } },
+            { id: 'n7', handle: '@nanami_apologist', avatar: 'https://i.postimg.cc/44q98SLd/9455e255421738e576534e9b80ae70d8.jpg', color: '#3f51b5', active: true,
+                ru: { name: 'nanami simp ☕', desc: 'Циничная лучшая подруга @brainrot_diary. В своей ленте постоянно жалуется на выгорание, симпит Нанами Кенто и регулярно напоминает подписчикам, что Годжо Сатору переоценен. Однако, как только первая девочка постит что-то про юзера, она тут же врывается в реплаи, чтобы агрессивно её поддержать.', style: 'Сухой сарказм, постирония, мемы по Магической Битве. Резко переключается на капс, когда комментирует посты подруги. Часто жалуется на усталость и отсутствие логики у других людей в ленте.' },
+                en: { name: 'nanami simp ☕', desc: 'The cynical best friend of @brainrot_diary. Constantly complains about burnout in her own feed, simps for Nanami Kento, and regularly reminds followers that Gojo Satoru is overrated. But the moment her friend posts something about the user, she instantly storms into the replies to aggressively back her up.', style: 'Dry sarcasm, post-irony, Jujutsu Kaisen memes. Switches sharply to all caps when commenting on her friend\'s posts. Frequently complains about being tired and about everyone else\'s lack of logic in the feed.' } },
     ];
+
+    /** Собирает NPC из сида на языке ролевой — на момент вызова, не «вморожено» при загрузке модуля. */
+    function buildDefaultNpc(seed) {
+        const lang = NovaPrompts.rp().code === 'en' ? seed.en : seed.ru;
+        return { id: seed.id, handle: seed.handle, avatar: seed.avatar, color: seed.color, active: seed.active, ...lang };
+    }
 
     const defaultFolder = {
         id: 'default',
         name: 'Default',
         icon: 'fa-folder',
         active: true,
-        npcs: JSON.parse(JSON.stringify(DEFAULT_NPCS_SEED)),
+        npcs: DEFAULT_NPCS_SEED.map(buildDefaultNpc),
     };
 
     async function generateCharProfile(char, $el) {
@@ -10921,7 +10943,7 @@ sketch or construction lines.`,
             const missing = DEFAULT_NPCS_SEED.filter(seed => !folder.npcs.some(n => n.id === seed.id));
             if (missing.length > 0) {
                 $restoreBtn.css('display', 'block').off('click').on('click', () => {
-                    missing.forEach(seed => folder.npcs.push(JSON.parse(JSON.stringify(seed))));
+                    missing.forEach(seed => folder.npcs.push(buildDefaultNpc(seed)));
                     saveFolders();
                     toastr.success(`${t('Возвращено NPC:')} ${missing.length}`);
                     renderProfilesTab();
