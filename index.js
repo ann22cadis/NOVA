@@ -8075,6 +8075,11 @@ sketch or construction lines.`,
         'Свернуть': 'Collapse',
         'Развернуть': 'Expand',
         'Удалить чат': 'Delete chat',
+        'Указания (необязательно): кого добавить, сколько, какие они...': 'Instructions (optional): who to add, how many, what they are like...',
+        'Нет активных персонажей в чате.': 'No active characters in this chat.',
+        'Открыть публичный профиль': 'Open public profile',
+        'Загрузить новый аватар': 'Upload a new avatar',
+        'Загрузить шапку профиля': 'Upload a profile banner',
     };
 
     /** Перевод одной строки — для JS-строк, собираемых динамически. RU остаётся RU, если словарь молчит. */
@@ -8341,7 +8346,7 @@ sketch or construction lines.`,
         $(document).off('click', '.nova-history-delete-btn').on('click', '.nova-history-delete-btn', function() {
             const index = $(this).data('index');
             const subindex = $(this).data('subindex');
-            novaConfirm("Удалить этот блок из памяти чата?", () => {
+            novaConfirm(t("Удалить этот блок из памяти чата?"), () => {
                 const stContext = SillyTavern.getContext();
                 if (stContext && stContext.chat && stContext.chat[index]) {
                     const localRegex = contextMarkerRegex(true);
@@ -8378,16 +8383,16 @@ sketch or construction lines.`,
             const $result = $('#nova-compact-storage-result');
             if ($btn.prop('disabled')) return;
             $btn.prop('disabled', true).find('i').addClass('fa-spin');
-            $result.text('Ищу дубликаты...');
+            $result.text(t('Ищу дубликаты...'));
             try {
                 const { uniqueImages, fieldsUpdated } = await compactStorage();
                 $result.text(uniqueImages === 0
-                    ? 'Ничего не нашлось — всё уже хранится файлами.'
-                    : `Готово: ${uniqueImages} картинок перенесено в файлы, заменено ${fieldsUpdated} вхождений.`);
+                    ? t('Ничего не нашлось — всё уже хранится файлами.')
+                    : `${t('Готово:')} ${uniqueImages} ${t('картинок перенесено в файлы, заменено')} ${fieldsUpdated} ${t('вхождений.')}`);
                 if (fieldsUpdated > 0) toastr.success(t('Хранилище сжато'), 'NOVA');
             } catch (e) {
                 console.error('[NOVA] compactStorage failed', e);
-                $result.text('Не получилось: ' + String(e.message || e));
+                $result.text(t('Не получилось:') + ' ' + String(e.message || e));
             } finally {
                 $btn.prop('disabled', false).find('i').removeClass('fa-spin');
             }
@@ -8559,17 +8564,17 @@ sketch or construction lines.`,
         
         $('#nova-max-tokens').on('input', function() {
             const val = $(this).val();
-            $('#nova-max-tokens-val').text(val === '0' ? '0 (Авто)' : val);
+            $('#nova-max-tokens-val').text(val === '0' ? t('0 (Авто)') : val);
         });
 
         $('#nova-feed-history-size').on('input', function() {
             const val = $(this).val();
-            $('#nova-feed-history-size-val').text(val === '0' ? 'без лимита' : val);
+            $('#nova-feed-history-size-val').text(val === '0' ? t('без лимита') : val);
         });
 
         $('#nova-dm-history-size').on('input', function() {
             const val = $(this).val();
-            $('#nova-dm-history-size-val').text(val === '0' ? 'без лимита' : val);
+            $('#nova-dm-history-size-val').text(val === '0' ? t('без лимита') : val);
         });
 
         $('#nova-new-dm-back-btn').on('click', () => {
@@ -8588,7 +8593,7 @@ sketch or construction lines.`,
         wireCustomSelects($('#nova-view-chars'));
 
         $(document).on('click', '#nova-create-persona-btn', async () => {
-            const name = await novaPrompt('Новая персона', 'Название (необязательно)');
+            const name = await novaPrompt(t('Новая персона'), t('Название (необязательно)'));
             if (name === null) return;
             const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();
             if (!extensionSettings.NOVA) extensionSettings.NOVA = {};
@@ -8621,7 +8626,7 @@ sketch or construction lines.`,
             const store = extensionSettings.NOVA || {};
             const personaId = store.activePersonaId || getActivePersonaEntry()?.id;
             if (!personaId) return;
-            novaConfirm('Удалить эту персону? Профиль (имя, ник, био) будет потерян.', () => {
+            novaConfirm(t('Удалить эту персону? Профиль (имя, ник, био) будет потерян.'), () => {
                 store.personas = (store.personas || []).filter(p => p.id !== personaId);
                 if (store.charProfiles) delete store.charProfiles[personaId];
                 if (store.activePersonaId === personaId) store.activePersonaId = '';
@@ -8631,7 +8636,7 @@ sketch or construction lines.`,
         });
 
         $(document).on('click', '#nova-create-folder-btn', async () => {
-            const folderName = await Popup.show.input('Новая папка', 'Название папки');
+            const folderName = await Popup.show.input(t('Новая папка'), t('Название папки'));
             if (folderName) {
                 const stContext = SillyTavern.getContext();
                 const newFolder = {
@@ -8653,8 +8658,8 @@ sketch or construction lines.`,
             // Пустая строка — обычная генерация по контексту, как раньше. Отмена
             // (null) — не генерируем вовсе, иначе кнопка «Отмена» тратила бы запрос
             const note = await novaPrompt(
-                'Сгенерировать NPC',
-                'Указания (необязательно): кого добавить, сколько, какие они...',
+                t('Сгенерировать NPC'),
+                t('Указания (необязательно): кого добавить, сколько, какие они...'),
                 'text',
                 true,
             );
@@ -8678,7 +8683,7 @@ sketch or construction lines.`,
         $('#nova-create-npc-avatar-input').on('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
-            openImageCropper(file, { aspect: 1, outWidth: 256, allowShape: true, title: 'Выберите область для аватарки' }, async (dataUrl) => {
+            openImageCropper(file, { aspect: 1, outWidth: 256, allowShape: true, title: t('Выберите область для аватарки') }, async (dataUrl) => {
                 // Превью сразу из data URL, путь подставляем после загрузки — иначе
                 // картинка «залипает» пустой на время обращения к серверу
                 npcEditorState.avatar = dataUrl;
@@ -8697,7 +8702,7 @@ sketch or construction lines.`,
         $('#nova-create-npc-banner-input').on('change', function(e) {
             const file = e.target.files[0];
             if (!file) return;
-            openImageCropper(file, { aspect: 3, outWidth: 900, title: 'Выберите область для шапки' }, async (dataUrl) => {
+            openImageCropper(file, { aspect: 3, outWidth: 900, title: t('Выберите область для шапки') }, async (dataUrl) => {
                 // См. аватарку выше — сначала превью, потом путь
                 npcEditorState.banner = dataUrl;
                 renderNpcEditorBanner();
@@ -8855,9 +8860,9 @@ sketch or construction lines.`,
     function updateImageBadge() {
         const cfg = getImageSettings();
         const profile = getActiveImageProfile();
-        let text = 'Выключено';
-        if (cfg.enabled && !profile) text = 'Нет профиля';
-        else if (cfg.enabled) text = `До ${cfg.max_per_batch} за раз`;
+        let text = t('Выключено');
+        if (cfg.enabled && !profile) text = t('Нет профиля');
+        else if (cfg.enabled) text = `${t('До')} ${cfg.max_per_batch} ${t('за раз')}`;
         $('#nova-image-badge').text(text);
     }
 
@@ -8876,8 +8881,8 @@ sketch or construction lines.`,
         $('#nova-image-profile-select-wrap').html(buildCustomSelect(
             'nova-image-profile-list',
             cfg.profiles.length
-                ? cfg.profiles.map(p => ({ value: p.id, label: escapeHtml(p.name || 'Без названия') }))
-                : [{ value: '', label: '— нет профилей, создайте —' }],
+                ? cfg.profiles.map(p => ({ value: p.id, label: escapeHtml(p.name || t('Без названия')) }))
+                : [{ value: '', label: t('— нет профилей, создайте —') }],
             cfg.active_profile || cfg.profiles[0]?.id || '',
         ));
         // Подключение может быть заимствовано — тогда свой редактор не нужен вовсе
@@ -8887,12 +8892,12 @@ sketch or construction lines.`,
         const $info = $('#nova-image-sillyimages-info');
         if (cfg.use_sillyimages) {
             $info.css('display', 'block').html(borrowed
-                ? `Подключение взято из sillyimages:<br>
-                   тип <b>${escapeHtml(borrowed.apiType)}</b>, модель <b>${escapeHtml(borrowed.model || '—')}</b><br>
+                ? `${t('Подключение взято из sillyimages:')}<br>
+                   ${t('тип')} <b>${escapeHtml(borrowed.apiType)}</b>, ${t('модель')} <b>${escapeHtml(borrowed.model || '—')}</b><br>
                    <span style="opacity:.7;">${escapeHtml(borrowed.endpoint)}</span><br>
-                   Менять их нужно там же, в настройках sillyimages.`
-                : 'Расширение sillyimages не найдено или в нём не заполнены эндпоинт и ключ. '
-                  + 'Настройте его либо снимите галочку и заведите профиль здесь.');
+                   ${t('Менять их нужно там же, в настройках sillyimages.')}`
+                : t('Расширение sillyimages не найдено или в нём не заполнены эндпоинт и ключ. ')
+                  + t('Настройте его либо снимите галочку и заведите профиль здесь.'));
         } else {
             $info.css('display', 'none');
         }
@@ -8901,7 +8906,7 @@ sketch or construction lines.`,
 
         const type = ['gemini', 'naistera'].includes(active?.apiType) ? active.apiType : 'openai';
         $('#nova-image-type-select-wrap').html(buildCustomSelect('nova-image-profile-type', [
-            { value: 'openai', label: 'OpenAI-совместимый' },
+            { value: 'openai', label: t('OpenAI-совместимый') },
             { value: 'gemini', label: 'Gemini / nano-banana' },
             { value: 'naistera', label: 'Naistera' },
         ], type));
@@ -8929,7 +8934,7 @@ sketch or construction lines.`,
         const preset = getActiveImagePreset();
         $('#nova-image-preset-select-wrap').html(buildCustomSelect(
             'nova-image-preset-list',
-            cfg.presets.map(p => ({ value: p.id, label: escapeHtml(p.name || 'Без названия') })),
+            cfg.presets.map(p => ({ value: p.id, label: escapeHtml(p.name || t('Без названия')) })),
             preset?.id || '',
         ));
         if (preset) {
@@ -8940,7 +8945,7 @@ sketch or construction lines.`,
         const style = getActiveImageStyle();
         $('#nova-image-style-select-wrap').html(buildCustomSelect(
             'nova-image-style-list',
-            cfg.styles.map(s => ({ value: s.id, label: escapeHtml(s.name || 'Без названия') })),
+            cfg.styles.map(s => ({ value: s.id, label: escapeHtml(s.name || t('Без названия')) })),
             style?.id || '',
         ));
         if (style) {
@@ -9002,7 +9007,7 @@ sketch or construction lines.`,
         const profiles = getActiveProfiles().filter(p => !p.isUser);
         if (!profiles.length) {
             $box.append(`<div style="color: var(--nova-text-muted); font-size: 13px; opacity: 0.75; padding: 4px 0;">
-                Нет активных персонажей и NPC.
+                ${t('Нет активных персонажей и NPC.')}
             </div>`);
             return;
         }
@@ -9071,9 +9076,9 @@ sketch or construction lines.`,
         // Привязка к персонажу из ДРУГОГО чата — не ошибка: референс Нанами
         // работает везде, где он постит. Но молча показывать «не привязан»
         // нельзя, иначе интерфейс врёт про сохранённое состояние
-        const options = ['<option value="">— не привязан —</option>']
+        const options = [`<option value="">${t('— не привязан —')}</option>`]
             .concat(bound && !inChat
-                ? [`<option value="${escapeHtml(bound)}" selected>@${escapeHtml(bound)} — нет в этом чате</option>`]
+                ? [`<option value="${escapeHtml(bound)}" selected>@${escapeHtml(bound)} ${t('нет в этом чате')}</option>`]
                 : [])
             .concat(profiles.map(p => {
                 const selected = normHandle(p.handle) === bound ? ' selected' : '';
@@ -9081,14 +9086,14 @@ sketch or construction lines.`,
             }))
             .join('');
 
-        const title = ref.name || 'Без имени';
+        const title = ref.name || t('Без имени');
         const boundLabel = describeReferenceBinding(ref, profiles);
         const chips = [
             ref.mode === 'always'
-                ? '<span class="nova-ref-chip accent">Всегда</span>'
-                : '<span class="nova-ref-chip">Когда в кадре</span>',
+                ? `<span class="nova-ref-chip accent">${t('Всегда')}</span>`
+                : `<span class="nova-ref-chip">${t('Когда в кадре')}</span>`,
             boundLabel ? `<span class="nova-ref-chip">${escapeHtml(boundLabel)}</span>` : '',
-            ref.keywords.length ? `<span class="nova-ref-chip">${ref.keywords.length} кл. слов</span>` : '',
+            ref.keywords.length ? `<span class="nova-ref-chip">${ref.keywords.length} ${t('кл. слов')}</span>` : '',
         ].join('');
 
         return `
@@ -9104,26 +9109,26 @@ sketch or construction lines.`,
                     <i class="fa-solid fa-chevron-right nova-ref-chevron"></i>
                 </summary>
                 <div class="nova-ref-card" data-id="${ref.id}">
-                    <div class="nova-ref-thumb" title="Заменить изображение">
+                    <div class="nova-ref-thumb" title="${t('Заменить изображение')}">
                         ${ref.image ? `<img src="${escapeHtml(ref.image)}" alt="">` : '<i class="fa-solid fa-image"></i>'}
                     </div>
                     <div class="nova-ref-fields">
-                        <input type="text" class="nova-image-field nova-ref-name" placeholder="Имя (подписывается на картинке)" value="${escapeHtml(ref.name)}">
+                        <input type="text" class="nova-image-field nova-ref-name" placeholder="${t('Имя (подписывается на картинке)')}" value="${escapeHtml(ref.name)}">
                         <select class="nova-image-field nova-ref-handle" style="appearance: auto; cursor: pointer;">${options}</select>
-                        <textarea class="nova-image-field nova-autogrow nova-ref-keywords" rows="1" placeholder="Ключевые слова через запятую">${escapeHtml(ref.keywords.join(', '))}</textarea>
+                        <textarea class="nova-image-field nova-autogrow nova-ref-keywords" rows="1" placeholder="${t('Ключевые слова через запятую')}">${escapeHtml(ref.keywords.join(', '))}</textarea>
                         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                             <select class="nova-image-field nova-ref-mode" style="flex: 1; min-width: 130px; appearance: auto; cursor: pointer;">
-                                <option value="auto"${ref.mode === 'auto' ? ' selected' : ''}>Когда в кадре</option>
-                                <option value="always"${ref.mode === 'always' ? ' selected' : ''}>Всегда</option>
+                                <option value="auto"${ref.mode === 'auto' ? ' selected' : ''}>${t('Когда в кадре')}</option>
+                                <option value="always"${ref.mode === 'always' ? ' selected' : ''}>${t('Всегда')}</option>
                             </select>
                             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--nova-text-muted); font-size: 13px;">
                                 <input type="checkbox" class="nova-ref-label" ${ref.label ? 'checked' : ''} style="accent-color: var(--nova-accent); width: 16px; height: 16px;">
-                                Подпись
+                                ${t('Подпись')}
                             </label>
-                            <div class="nova-icon-btn nova-ref-archive" title="Убрать в архив" style="background: var(--nova-surface-hover); width: 32px; height: 32px;">
+                            <div class="nova-icon-btn nova-ref-archive" title="${t('Убрать в архив')}" style="background: var(--nova-surface-hover); width: 32px; height: 32px;">
                                 <i class="fa-solid fa-box-archive"></i>
                             </div>
-                            <div class="nova-icon-btn nova-ref-delete" title="Удалить референс" style="background: var(--nova-surface-hover); width: 32px; height: 32px;">
+                            <div class="nova-icon-btn nova-ref-delete" title="${t('Удалить референс')}" style="background: var(--nova-surface-hover); width: 32px; height: 32px;">
                                 <i class="fa-solid fa-trash"></i>
                             </div>
                         </div>
@@ -9149,8 +9154,8 @@ sketch or construction lines.`,
         if (!active.length) {
             $list.append(`<div style="color: var(--nova-text-muted); font-size: 13px; opacity: 0.75; padding: 4px 0;">
                 ${archived.length
-                    ? 'Все референсы в архиве. Верните нужный ниже или загрузите новый.'
-                    : 'Референсов пока нет. Загрузите фото персонажа, чтобы он выглядел одинаково на всех картинках.'}
+                    ? t('Все референсы в архиве. Верните нужный ниже или загрузите новый.')
+                    : t('Референсов пока нет. Загрузите фото персонажа, чтобы он выглядел одинаково на всех картинках.')}
             </div>`);
         } else {
             active.forEach(ref => $list.append(buildReferenceCard(ref, profiles)));
@@ -9178,13 +9183,13 @@ sketch or construction lines.`,
                         ? `<img src="${escapeHtml(ref.image)}" alt="">`
                         : '<i class="fa-solid fa-image"></i>'}</div>
                     <div class="nova-ref-summary-text">
-                        <div class="nova-ref-title nova-truncate">${escapeHtml(ref.name || 'Без имени')}</div>
+                        <div class="nova-ref-title nova-truncate">${escapeHtml(ref.name || t('Без имени'))}</div>
                         <div class="nova-ref-chips">${boundLabel ? `<span class="nova-ref-chip">${escapeHtml(boundLabel)}</span>` : ''}</div>
                     </div>
-                    <div class="nova-icon-btn nova-ref-restore" title="Вернуть в работу" style="background: var(--nova-surface-hover); width: 32px; height: 32px; flex-shrink: 0;">
+                    <div class="nova-icon-btn nova-ref-restore" title="${t('Вернуть в работу')}" style="background: var(--nova-surface-hover); width: 32px; height: 32px; flex-shrink: 0;">
                         <i class="fa-solid fa-rotate-left"></i>
                     </div>
-                    <div class="nova-icon-btn nova-ref-delete" title="Удалить навсегда" style="background: var(--nova-surface-hover); width: 32px; height: 32px; flex-shrink: 0;">
+                    <div class="nova-icon-btn nova-ref-delete" title="${t('Удалить навсегда')}" style="background: var(--nova-surface-hover); width: 32px; height: 32px; flex-shrink: 0;">
                         <i class="fa-solid fa-trash"></i>
                     </div>
                 </div>
@@ -9324,7 +9329,7 @@ sketch or construction lines.`,
         $(document).on('click', '.nova-ref-delete', function() {
             const ref = findRef(this);
             if (!ref) return;
-            novaConfirm(`Удалить референс${ref.name ? ` «${ref.name}»` : ''}?`, () => {
+            novaConfirm(`${t('Удалить референс')}${ref.name ? ` «${ref.name}»` : ''}?`, () => {
                 const cfg = getImageSettings();
                 cfg.references = cfg.references.filter(r => r.id !== ref.id);
                 commit();
@@ -9427,7 +9432,7 @@ sketch or construction lines.`,
         });
 
         $('#nova-image-profile-new').on('click', async () => {
-            const name = await novaPrompt('Новый профиль', 'Название профиля');
+            const name = await novaPrompt(t('Новый профиль'), t('Название профиля'));
             if (!name) return;
             const cfg = getImageSettings();
             const profile = {
@@ -9451,7 +9456,7 @@ sketch or construction lines.`,
             const cfg = getImageSettings();
             const profile = getActiveImageProfile();
             if (!profile) return;
-            profile.name = $('#nova-image-profile-name').val().trim() || 'Без названия';
+            profile.name = $('#nova-image-profile-name').val().trim() || t('Без названия');
             profile.apiType = String($('#nova-image-profile-type').attr('data-value') || 'openai');
             profile.endpoint = $('#nova-image-profile-endpoint').val().trim();
             profile.apiKey = $('#nova-image-profile-key').val().trim();
@@ -9468,7 +9473,7 @@ sketch or construction lines.`,
             const cfg = getImageSettings();
             const profile = getActiveImageProfile();
             if (!profile) return;
-            novaConfirm(`Удалить профиль «${profile.name}»?`, () => {
+            novaConfirm(`${t('Удалить профиль')} «${profile.name}»?`, () => {
                 cfg.profiles = cfg.profiles.filter(p => p.id !== profile.id);
                 cfg.active_profile = cfg.profiles[0]?.id || '';
                 saveImageSettings();
@@ -9484,19 +9489,19 @@ sketch or construction lines.`,
             const profile = getActiveImageProfile();
             if (!profile) return;
 
-            $btn.prop('disabled', true).text('Проверяю...');
+            $btn.prop('disabled', true).text(t('Проверяю...'));
             try {
                 const dataUrl = await generateNovaImage(
                     'A simple test photo: a red apple on a wooden table, natural window light.',
                     profile,
                 );
-                openImageViewer({ image: dataUrl, prompt: 'Тестовая генерация прошла успешно' });
+                openImageViewer({ image: dataUrl, prompt: t('Тестовая генерация прошла успешно') });
                 toastr.success(t('Профиль работает'), 'NOVA');
             } catch (e) {
                 console.error('[NOVA] Проверка профиля картинок не прошла', e);
                 toastr.error(String(e.message || e), 'NOVA', { timeOut: 12000 });
             } finally {
-                $btn.prop('disabled', false).text('Проверить');
+                $btn.prop('disabled', false).text(t('Проверить'));
             }
         });
 
@@ -9510,7 +9515,7 @@ sketch or construction lines.`,
         });
 
         $('#nova-image-preset-new').on('click', async () => {
-            const name = await novaPrompt('Новый промпт', 'Название промпта');
+            const name = await novaPrompt(t('Новый промпт'), t('Название промпта'));
             if (!name) return;
             const cfg = getImageSettings();
             const preset = {
@@ -9530,7 +9535,7 @@ sketch or construction lines.`,
             const cfg = getImageSettings();
             const preset = getActiveImagePreset();
             if (!preset) return;
-            preset.name = $('#nova-image-preset-name').val().trim() || 'Без названия';
+            preset.name = $('#nova-image-preset-name').val().trim() || t('Без названия');
             preset.prompt = $('#nova-image-preset-prompt').val();
             cfg.active_preset = preset.id;
             saveImageSettings();
@@ -9546,7 +9551,7 @@ sketch or construction lines.`,
                 toastr.info(t('Это последний промпт — удалить его нельзя.'));
                 return;
             }
-            novaConfirm(`Удалить промпт «${preset.name}»?`, () => {
+            novaConfirm(`${t('Удалить промпт')} «${preset.name}»?`, () => {
                 cfg.presets = cfg.presets.filter(p => p.id !== preset.id);
                 cfg.active_preset = cfg.presets[0]?.id || '';
                 saveImageSettings();
@@ -9564,7 +9569,7 @@ sketch or construction lines.`,
         });
 
         $('#nova-image-style-new').on('click', async () => {
-            const name = await novaPrompt('Новый стиль', 'Название стиля');
+            const name = await novaPrompt(t('Новый стиль'), t('Название стиля'));
             if (!name) return;
             const cfg = getImageSettings();
             const style = {
@@ -9583,7 +9588,7 @@ sketch or construction lines.`,
             const cfg = getImageSettings();
             const style = getActiveImageStyle();
             if (!style) return;
-            style.name = $('#nova-image-style-name').val().trim() || 'Без названия';
+            style.name = $('#nova-image-style-name').val().trim() || t('Без названия');
             style.style = $('#nova-image-style-text').val().trim();
             cfg.active_style = style.id;
             saveImageSettings();
@@ -9599,7 +9604,7 @@ sketch or construction lines.`,
                 toastr.info(t('Это последний стиль — удалить его нельзя.'));
                 return;
             }
-            novaConfirm(`Удалить стиль «${style.name}»?`, () => {
+            novaConfirm(`${t('Удалить стиль')} «${style.name}»?`, () => {
                 cfg.styles = cfg.styles.filter(s => s.id !== style.id);
                 cfg.active_style = cfg.styles[0]?.id || '';
                 saveImageSettings();
@@ -9661,7 +9666,7 @@ sketch or construction lines.`,
         if (!$select.length) return;
 
         $select.empty();
-        $select.append($('<option>', { value: '', text: '-- Главный API --' }));
+        $select.append($('<option>', { value: '', text: t('-- Главный API --') }));
         profileEntries.forEach(entry => {
             const $option = $('<option>', {
                 value: entry.name,
@@ -9701,11 +9706,11 @@ sketch or construction lines.`,
         // Значения не из настроек, а через getGenSetting — иначе новый юзер увидит одно, а получит другое
         // Слайдер округляет значение до своего шага — читаем обратно, чтобы подпись не расходилась
         const maxTokensValue = String($('#nova-max-tokens').val(String(getGenSetting(stContext, 'max_tokens'))).val());
-        $('#nova-max-tokens-val').text(maxTokensValue === '0' ? '0 (Авто)' : maxTokensValue);
+        $('#nova-max-tokens-val').text(maxTokensValue === '0' ? t('0 (Авто)') : maxTokensValue);
         const feedHistoryValue = String($('#nova-feed-history-size').val(String(getGenSetting(stContext, 'feed_history_size'))).val());
-        $('#nova-feed-history-size-val').text(feedHistoryValue === '0' ? 'без лимита' : feedHistoryValue);
+        $('#nova-feed-history-size-val').text(feedHistoryValue === '0' ? t('без лимита') : feedHistoryValue);
         const dmHistoryValue = String($('#nova-dm-history-size').val(String(getGenSetting(stContext, 'dm_history_size'))).val());
-        $('#nova-dm-history-size-val').text(dmHistoryValue === '0' ? 'без лимита' : dmHistoryValue);
+        $('#nova-dm-history-size-val').text(dmHistoryValue === '0' ? t('без лимита') : dmHistoryValue);
         // Через normalize — иначе сохранённое от старых версий 'disabled' оставит селект пустым
         $('#nova-thinking-budget').val(normalizeReasoningEffort(getGenSetting(stContext, 'thinking_budget')));
         $('#nova-thinking-hint').val(getGenSetting(stContext, 'thinking_hint'));
@@ -9755,7 +9760,7 @@ sketch or construction lines.`,
     async function generateCharProfile(char, $el) {
         const stContext = SillyTavern.getContext();
         
-            $el.find('.nova-generate-profile-btn').html('<i class="fa-solid fa-spinner nova-spinner"></i> Генерация...').prop('disabled', true);
+            $el.find('.nova-generate-profile-btn').html(`<i class="fa-solid fa-spinner nova-spinner"></i> ${t('Генерация...')}`).prop('disabled', true);
             
             $el.data('backup', {
                 name: $el.find('.npc-name').val(),
@@ -9781,7 +9786,7 @@ sketch or construction lines.`,
         } catch (e) {
             console.error("[NOVA] Char profile generation failed", e);
         } finally {
-            $el.find('.nova-generate-profile-btn').html('<i class="fa-solid fa-wand-magic-sparkles"></i> Сгенерировать').prop('disabled', false);
+            $el.find('.nova-generate-profile-btn').html(`<i class="fa-solid fa-wand-magic-sparkles"></i> ${t('Сгенерировать')}`).prop('disabled', false);
         }
     }
 
@@ -10002,7 +10007,7 @@ sketch or construction lines.`,
         }
 
         if (currentChars.length === 0) {
-            $charList.append('<div style="color: var(--nova-text-muted); font-size: 14px; text-align: center; padding: 12px;">Нет активных персонажей в чате.</div>');
+            $charList.append(`<div style="color: var(--nova-text-muted); font-size: 14px; text-align: center; padding: 12px;">${t('Нет активных персонажей в чате.')}</div>`);
         } else {
             currentChars.forEach(char => {
                 // Крайний случай: у Таверны вообще нет активной персоны (user_avatar
@@ -10025,73 +10030,73 @@ sketch or construction lines.`,
                     <div class="nova-profile-card nova-char-card" data-member-id="${memberId}" style="${isDisabled ? 'opacity: 0.5;' : ''}">
                         <div class="nova-profile-header">
                             ${avatarUrl ? `<img src="${avatarUrl}" class="nova-profile-avatar" onerror="this.style.display='none'">` : `<div class="nova-profile-avatar"><i class="fa-solid fa-user"></i></div>`}
-                            <div class="nova-profile-info" style="cursor:pointer;" title="Открыть публичный профиль">
+                            <div class="nova-profile-info" style="cursor:pointer;" title="${t('Открыть публичный профиль')}">
                                 <div class="nova-profile-name">${name}</div>
                                 <div class="nova-profile-handle">${handle}</div>
                             </div>
-                            
+
                             ${char.isUser ? '' : `
-                            <label class="nova-switch nova-char-toggle-label" title="Включить/Отключить персонажа в ленте" style="margin-right: 12px;">
+                            <label class="nova-switch nova-char-toggle-label" title="${t('Включить/Отключить персонажа в ленте')}" style="margin-right: 12px;">
                                 <input type="checkbox" class="nova-char-active-toggle" ${isDisabled ? '' : 'checked'}>
                                 <span class="nova-slider"></span>
                             </label>
                             `}
 
-                            <div class="nova-profile-toggle" title="Настройки профиля"><i class="fa-solid fa-gear"></i></div>
+                            <div class="nova-profile-toggle" title="${t('Настройки профиля')}"><i class="fa-solid fa-gear"></i></div>
                         </div>
                         <div class="nova-profile-body">
                             <div style="display: flex; gap: 12px; margin-bottom: 12px;">
                                 <div style="flex: 1;">
-                                    <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Имя</div>
+                                    <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">${t('Имя')}</div>
                                     <input type="text" class="nova-input npc-name" value="${name}">
                                 </div>
                                 <div style="flex: 1;">
-                                    <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Юзернейм</div>
+                                    <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">${t('Юзернейм')}</div>
                                     <input type="text" class="nova-input npc-handle" value="${handle}">
                                 </div>
                             </div>
 
                             <div style="margin-bottom: 12px;">
-                                <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Описание (био)</div>
+                                <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">${t('Описание (био)')}</div>
                                 <textarea class="nova-input npc-desc" rows="2" style="resize: vertical;">${genProfile ? (genProfile.desc || '') : ''}</textarea>
                             </div>
-                            
+
                             <div style="margin-bottom: 12px;">
-                                <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Стиль постов</div>
+                                <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">${t('Стиль постов')}</div>
                                 <input type="text" class="nova-input npc-style" value="${genProfile ? (genProfile.style || '') : ''}">
                             </div>
 
                             <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
-                                <div style="position: relative; cursor: pointer;" class="nova-avatar-upload-wrapper" title="Загрузить новый аватар">
+                                <div style="position: relative; cursor: pointer;" class="nova-avatar-upload-wrapper" title="${t('Загрузить новый аватар')}">
                                     <img class="nova-profile-avatar-preview" src="${avatarUrl}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
                                     <div style="position: absolute; bottom: -4px; right: -4px; background: var(--nova-accent); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px;"><i class="fa-solid fa-camera"></i></div>
                                 </div>
                                 <input type="file" class="nova-avatar-upload-input" accept="image/*" style="display: none;">
-                                <div style="position: relative; cursor: pointer; width: 96px; height: 32px; border-radius: 8px; overflow: hidden; background: var(--nova-surface-hover); border: 1px dashed var(--nova-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0;" class="nova-banner-upload-wrapper" title="Загрузить шапку профиля">
+                                <div style="position: relative; cursor: pointer; width: 96px; height: 32px; border-radius: 8px; overflow: hidden; background: var(--nova-surface-hover); border: 1px dashed var(--nova-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0;" class="nova-banner-upload-wrapper" title="${t('Загрузить шапку профиля')}">
                                     <img class="nova-banner-preview" src="${genProfile && genProfile.banner ? genProfile.banner : ''}" style="width: 100%; height: 100%; object-fit: cover; ${genProfile && genProfile.banner ? '' : 'display: none;'}">
                                     <i class="fa-solid fa-image nova-banner-empty-icon" style="font-size: 12px; color: var(--nova-text-muted); ${genProfile && genProfile.banner ? 'display: none;' : ''}"></i>
-                                    <button class="nova-banner-clear-btn" title="Убрать шапку" style="position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.6); color: white; border: none; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; font-size: 9px; line-height: 1; padding: 0; ${genProfile && genProfile.banner ? '' : 'display: none;'}">
+                                    <button class="nova-banner-clear-btn" title="${t('Убрать шапку')}" style="position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.6); color: white; border: none; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; font-size: 9px; line-height: 1; padding: 0; ${genProfile && genProfile.banner ? '' : 'display: none;'}">
                                         <i class="fa-solid fa-xmark"></i>
                                     </button>
                                 </div>
                                 <input type="file" class="nova-banner-upload-input" accept="image/*" style="display: none;">
-                                <div style="font-size: 12px; color: var(--nova-text-muted);">Аватарка и шапка профиля для соцсети.</div>
+                                <div style="font-size: 12px; color: var(--nova-text-muted);">${t('Аватарка и шапка профиля для соцсети.')}</div>
                             </div>
 
                             <div style="margin-bottom: 12px;">
-                                <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">Что изображено на аватарке (для НПС)</div>
+                                <div style="font-size: 13px; color: var(--nova-text-muted); margin-bottom: 4px;">${t('Что изображено на аватарке (для НПС)')}</div>
                                 <textarea class="nova-input npc-avatar-desc" rows="1" style="resize: vertical;">${genProfile ? (genProfile.avatar_desc || '') : ''}</textarea>
                             </div>
 
                             <div style="display: flex; gap: 8px;">
                                 <button class="nova-generate-profile-btn" style="flex: 1; background:var(--nova-surface-hover);border:1px solid var(--nova-border);color:var(--nova-text);padding:8px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;">
-                                    <i class="fa-solid fa-wand-magic-sparkles"></i> Сгенерировать
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> ${t('Сгенерировать')}
                                 </button>
                                 <button class="nova-revert-profile-btn" style="flex: 1; background:var(--nova-surface);border:1px solid var(--nova-border);color:var(--nova-text);padding:8px;border-radius:8px;cursor:pointer;font-size:13px;display:none;align-items:center;justify-content:center;gap:6px;transition:all 0.2s;">
-                                    <i class="fa-solid fa-rotate-left"></i> Откатить
+                                    <i class="fa-solid fa-rotate-left"></i> ${t('Откатить')}
                                 </button>
                                 <button class="nova-save-profile-btn" style="flex: 1; background:var(--nova-accent);border:none;color:white;padding:8px;border-radius:8px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;gap:6px;transition:all 0.2s; font-weight: bold;">
-                                    <i class="fa-solid fa-floppy-disk"></i> Сохранить
+                                    <i class="fa-solid fa-floppy-disk"></i> ${t('Сохранить')}
                                 </button>
                             </div>
                         </div>
@@ -10210,7 +10215,7 @@ sketch or construction lines.`,
                 $el.find('.nova-banner-upload-input').on('change', function(e) {
                     const file = e.target.files[0];
                     if (!file) return;
-                    openImageCropper(file, { aspect: 3, outWidth: 900, title: 'Выберите область для шапки' }, async (dataUrl) => {
+                    openImageCropper(file, { aspect: 3, outWidth: 900, title: t('Выберите область для шапки') }, async (dataUrl) => {
                         // Превью сразу, путь вместо base64 — после загрузки (см. storeProfileImage)
                         $el.data('custom-banner', dataUrl);
                         $el.find('.nova-banner-preview').attr('src', dataUrl).show();
@@ -10238,7 +10243,7 @@ sketch or construction lines.`,
                 $el.find('.nova-avatar-upload-input').on('change', function(e) {
                     const file = e.target.files[0];
                     if (!file) return;
-                    openImageCropper(file, { aspect: 1, outWidth: 256, allowShape: true, title: 'Выберите область для аватарки' }, async (dataUrl) => {
+                    openImageCropper(file, { aspect: 1, outWidth: 256, allowShape: true, title: t('Выберите область для аватарки') }, async (dataUrl) => {
                         // Превью сразу, путь вместо base64 — после загрузки (см. storeProfileImage)
                         $el.data('custom-avatar', dataUrl);
                         setCardAvatar($el, dataUrl);
@@ -10322,7 +10327,7 @@ sketch or construction lines.`,
     function openImageCropper(file, options, onDone) {
         const aspect = options.aspect || 3;
         const outWidth = options.outWidth || 900;
-        const title = options.title || 'Выберите область';
+        const title = options.title || t('Выберите область');
         const allowShape = !!options.allowShape;
 
         const reader = new FileReader();
@@ -10355,16 +10360,16 @@ sketch or construction lines.`,
                         ${allowShape ? `
                         <div style="display: flex; gap: 8px; justify-content: center;">
                             <button class="nova-crop-shape" data-shape="square" style="flex: 1; max-width: 160px; background: var(--nova-accent); color: white; border: 1px solid var(--nova-accent); padding: 8px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600;">
-                                <i class="fa-regular fa-square"></i> Квадрат
+                                <i class="fa-regular fa-square"></i> ${t('Квадрат')}
                             </button>
                             <button class="nova-crop-shape" data-shape="circle" style="flex: 1; max-width: 160px; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 8px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600;">
-                                <i class="fa-regular fa-circle"></i> Кружок
+                                <i class="fa-regular fa-circle"></i> ${t('Кружок')}
                             </button>
                         </div>` : ''}
-                        <div style="font-size: 12px; color: var(--nova-text-muted); text-align: center;">Двигайте рамку и тяните за углы</div>
+                        <div style="font-size: 12px; color: var(--nova-text-muted); text-align: center;">${t('Двигайте рамку и тяните за углы')}</div>
                         <div style="display: flex; gap: 12px;">
-                            <button class="nova-cropper-cancel" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 600;">Отмена</button>
-                            <button class="nova-cropper-apply" style="flex: 1; background: var(--nova-accent); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 700;">Готово</button>
+                            <button class="nova-cropper-cancel" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 600;">${t('Отмена')}</button>
+                            <button class="nova-cropper-apply" style="flex: 1; background: var(--nova-accent); color: white; border: none; padding: 12px; border-radius: 12px; cursor: pointer; font-weight: 700;">${t('Готово')}</button>
                         </div>
                     </div>
                 </div>
@@ -10822,7 +10827,7 @@ sketch or construction lines.`,
         // Папку Default не переименовываем: её имя — опора для «Вернуть стандартных»
         const isDefaultFolder = folder.id === 'default';
         $('#nova-folder-rename-btn').toggle(!isDefaultFolder).off('click').on('click', async () => {
-            const name = await novaPrompt('Название папки', 'Как назвать эту папку?');
+            const name = await novaPrompt(t('Название папки'), t('Как назвать эту папку?'));
             if (name === null) return;
             const trimmed = String(name).trim();
             if (!trimmed) {
