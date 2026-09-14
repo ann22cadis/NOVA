@@ -167,7 +167,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
             const submit = () => {
                 const amount = Math.round(Number(String($amount.val()).replace(',', '.')));
                 if (!Number.isFinite(amount) || amount <= 0) {
-                    toastr.warning('Введите сумму больше нуля.');
+                    toastr.warning(t('Введите сумму больше нуля.'));
                     return;
                 }
                 close({
@@ -873,19 +873,19 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
     function insertEventsTranscript() {
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (!stContext || !stContext.chat || stContext.chat.length === 0) {
-            toastr.info("Чат пуст, вставлять переписку некуда.");
+            toastr.info(t("Чат пуст, вставлять переписку некуда."));
             return;
         }
 
         const events = collectUnsyncedEvents(MARK_INSERT);
         if (!events.posts.length && !events.threads.length) {
-            toastr.info("Нет новых событий для вставки.");
+            toastr.info(t("Нет новых событий для вставки."));
             return;
         }
 
         const { legend, feed, dms } = describeEvents(events);
         if (!feed && !dms) {
-            toastr.info("Нет новых событий для вставки.");
+            toastr.info(t("Нет новых событий для вставки."));
             return;
         }
 
@@ -903,9 +903,9 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         markEventsAsSynced(MARK_INSERT);
 
         toastr.success(
-            `В чат вставлено ${pluralRu(events.posts.length, 'пост', 'поста', 'постов')}` +
-            (events.threads.length ? ` и ${pluralRu(events.threads.length, 'диалог', 'диалога', 'диалогов')}` : '') + '.',
-            "Переписка"
+            `${t('В чат вставлено')} ${pluralUi(events.posts.length, { ru: ['пост', 'поста', 'постов'], en: ['post', 'posts'] })}` +
+            (events.threads.length ? ` ${t('и')} ${pluralUi(events.threads.length, { ru: ['диалог', 'диалога', 'диалогов'], en: ['chat', 'chats'] })}` : '') + '.',
+            t("Переписка")
         );
     }
 
@@ -917,13 +917,13 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
     function insertThreadTranscript(index) {
         const thread = dmThreads[index];
         if (!thread?.messages?.length) {
-            toastr.info("В этой переписке пока нечего вставлять.");
+            toastr.info(t("В этой переписке пока нечего вставлять."));
             return;
         }
 
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (!stContext || !stContext.chat || stContext.chat.length === 0) {
-            toastr.info("Чат пуст, вставлять переписку некуда.");
+            toastr.info(t("Чат пуст, вставлять переписку некуда."));
             return;
         }
 
@@ -937,13 +937,13 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         // обрезать его на последних 15 сообщениях было бы потерей по своей инициативе
         const messages = lastIdx !== -1 ? thread.messages.slice(lastIdx + 1) : thread.messages.slice();
         if (!messages.length) {
-            toastr.info("Все сообщения этой переписки уже вставлены в чат.");
+            toastr.info(t("Все сообщения этой переписки уже вставлены в чат."));
             return;
         }
 
         const { legend, dms } = describeEvents({ posts: [], threads: [{ thread, messages }] });
         if (!dms) {
-            toastr.info("В этой переписке пока нечего вставлять.");
+            toastr.info(t("В этой переписке пока нечего вставлять."));
             return;
         }
 
@@ -967,8 +967,8 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         renderDMs();
 
         toastr.success(
-            `В чат вставлено ${pluralRu(messages.length, 'сообщение', 'сообщения', 'сообщений')} из переписки с ${thread.name}.`,
-            "Переписка"
+            `${t('В чат вставлено')} ${pluralUi(messages.length, { ru: ['сообщение', 'сообщения', 'сообщений'], en: ['message', 'messages'] })} ${t('из переписки с')} ${thread.name}.`,
+            t("Переписка")
         );
     }
 
@@ -977,12 +977,12 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (!stContext || !stContext.chat || stContext.chat.length === 0) {
             console.log("[NOVA] Chat is empty");
-            if (!isAuto) toastr.info("Чат пуст, синхронизация отменена.");
+            if (!isAuto) toastr.info(t("Чат пуст, синхронизация отменена."));
             return;
         }
         
         console.log("[NOVA] Chat has messages, proceeding to sync");
-        if (!isAuto) toastr.info("Синхронизация контекста NOVA...", "NOVA", {timeOut: 3000});
+        if (!isAuto) toastr.info(t("Синхронизация контекста NOVA..."), "NOVA", {timeOut: 3000});
 
         try {
             const activeProfiles = typeof getActiveProfiles === 'function' ? getActiveProfiles() : [];
@@ -1021,7 +1021,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
             // 3. Abort if no new context
             if (!feedContext && !dmContext) {
                 console.log("[NOVA] No new events to summarize.");
-                if (!isAuto) toastr.info("Нет новых событий для пересказа.");
+                if (!isAuto) toastr.info(t("Нет новых событий для пересказа."));
                 return;
             }
 
@@ -1035,13 +1035,13 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
                 // с содержимым чата и снял бы метку, поставленную до вставки блока
                 injectContextIntoChat(summary, 'summary');
                 markEventsAsSynced(MARK_SUMMARY);
-                if (!isAuto) toastr.success("События добавлены в чат как системное сообщение!", "Синхронизация");
+                if (!isAuto) toastr.success(t("События добавлены в чат как системное сообщение!"), t("Синхронизация"));
             } else if (!isAuto) {
-                toastr.warning("Модель вернула пустой пересказ — события остались непрочитанными.");
+                toastr.warning(t("Модель вернула пустой пересказ — события остались непрочитанными."));
             }
         } catch (e) {
             console.error("[NOVA] Sync error:", e);
-            if (!isAuto) toastr.error("Не удалось синхронизировать контекст. Ошибка: " + e.message, "Ошибка");
+            if (!isAuto) toastr.error(t("Не удалось синхронизировать контекст. Ошибка:") + " " + e.message, t("Ошибка"));
         }
     }
 
@@ -2198,11 +2198,11 @@ sketch or construction lines.`,
         if (prevAffinity >= 100 && rec.affinity >= 100 && delta > 0) {
             rec.tier = prevTier + 1;
             const name = item.name || item.sender_name || handle;
-            toastr.success(`${name}: ур. ${rec.tier}${rec.status ? ' — ' + rec.status : ''}`, '✨ Апгрейд отношений!');
+            toastr.success(`${name}: ${t('ур.')} ${rec.tier}${rec.status ? ' — ' + rec.status : ''}`, t('✨ Апгрейд отношений!'));
         } else if (prevAffinity <= 0 && rec.affinity <= 0 && delta < 0) {
             rec.tier = prevTier - 1;
             const name = item.name || item.sender_name || handle;
-            toastr.warning(`${name}: ур. ${Math.abs(rec.tier)}${rec.status ? ' — ' + rec.status : ''}`, '💔 Кризис отношений');
+            toastr.warning(`${name}: ${t('ур.')} ${Math.abs(rec.tier)}${rec.status ? ' — ' + rec.status : ''}`, t('💔 Кризис отношений'));
         }
         if (reaction || delta || (estimate !== null && isFirstEvent)) {
             // id — память об этом конкретном посте/сообщении: если его потом удалят,
@@ -2637,7 +2637,7 @@ sketch or construction lines.`,
             if (!tracks.length) return;
 
             if (!isMoodTubeAvailable()) {
-                toastr.warning('MoodTube не найден на странице — расширение не установлено или ещё не загрузилось.');
+                toastr.warning(t('MoodTube не найден на странице — расширение не установлено или ещё не загрузилось.'));
                 return;
             }
 
@@ -2645,7 +2645,7 @@ sketch or construction lines.`,
             const $icon = $btn.find('i').removeClass('fa-play').addClass('fa-spinner fa-spin');
             const ok = await playMoodTubeTracksNow(tracks);
             $icon.removeClass('fa-spinner fa-spin').addClass('fa-play');
-            if (!ok) toastr.warning(`Трек не найден: ${tracks[0]}`);
+            if (!ok) toastr.warning(`${t('Трек не найден:')} ${tracks[0]}`);
             $btn.data('busy', false);
         });
 
@@ -2659,7 +2659,7 @@ sketch or construction lines.`,
             if (!tracks.length) return;
 
             if (!isMoodTubeAvailable()) {
-                toastr.warning('MoodTube не найден на странице — расширение не установлено или ещё не загрузилось.');
+                toastr.warning(t('MoodTube не найден на странице — расширение не установлено или ещё не загрузилось.'));
                 return;
             }
 
@@ -2683,7 +2683,7 @@ sketch or construction lines.`,
             $icon.removeClass('fa-spinner fa-spin');
             if (!ok) {
                 $icon.addClass('fa-play');
-                toastr.warning(`Трек не найден: ${tracks[0]}`);
+                toastr.warning(`${t('Трек не найден:')} ${tracks[0]}`);
             }
             // При успехе иконку и класс .playing доведёт до ума moodtube:trackchange
             // через syncMusicCardsUI — событие придёт чуть позже, когда поиск реально найдётся.
@@ -3052,7 +3052,7 @@ sketch or construction lines.`,
                 if (onProgress) onProgress(done, targets.length, item);
             } catch (e) {
                 console.error('[NOVA] Не удалось сгенерировать картинку', e);
-                toastr.error(`Картинка не сгенерирована: ${e.message || e}`, 'NOVA');
+                toastr.error(`${t('Картинка не сгенерирована:')} ${e.message || e}`, 'NOVA');
                 // Промпт сохраняем и для неудачи — без него нечем будет повторить
                 // генерацию по кнопке на затычке
                 item.imagePrompt = prompt;
@@ -3402,7 +3402,7 @@ sketch or construction lines.`,
             console.log(`[NOVA] Using Tavern main API...`);
             // generateRaw в этой версии ST не умеет картинки — предупреждаем, а не роняем генерацию
             if (visionImages.length) {
-                toastr.warning('Изображение не отправлено модели: главный API это не поддерживает. Выберите профиль подключения.', 'NOVA');
+                toastr.warning(t('Изображение не отправлено модели: главный API это не поддерживает. Выберите профиль подключения.'), 'NOVA');
             }
             const restoreReasoning = applyMainApiReasoning(ctx, reasoningEffort);
             try {
@@ -3752,7 +3752,7 @@ sketch or construction lines.`,
             const parsed = tryParseJson(repaired);
             if (parsed && typeof parsed === 'object') {
                 console.warn('[NOVA] Ответ оборвался (лимит токенов) — восстановлена усечённая часть JSON.');
-                toastr.warning('Ответ модели оборвался по лимиту токенов — часть постов потеряна. Увеличьте лимит или снизьте «Рассуждения».', 'NOVA');
+                toastr.warning(t('Ответ модели оборвался по лимиту токенов — часть постов потеряна. Увеличьте лимит или снизьте «Рассуждения».'), 'NOVA');
                 return parsed;
             }
         }
@@ -4121,7 +4121,7 @@ sketch or construction lines.`,
         if (!String(item.imagePrompt || '').trim()) {
             // Затычки, упавшие ДО того, как мы стали сохранять промпт для повтора,
             // повторить нечем — молча ничего не делать хуже, чем объяснить, почему
-            toastr.warning('У этой картинки не сохранился промпт — повторить нечем. Перегенерируйте пост целиком.', 'NOVA');
+            toastr.warning(t('У этой картинки не сохранился промпт — повторить нечем. Перегенерируйте пост целиком.'), 'NOVA');
             return;
         }
         item.image_prompt = item.imagePrompt;
@@ -4166,7 +4166,7 @@ sketch or construction lines.`,
     async function attachPendingImage(slot, file, previewSelector) {
         if (!file) return;
         if (!/^image\//.test(file.type)) {
-            toastr.warning('Это не изображение.');
+            toastr.warning(t('Это не изображение.'));
             return;
         }
         try {
@@ -4175,7 +4175,7 @@ sketch or construction lines.`,
             $(previewSelector).show().find('img').attr('src', dataUrl);
         } catch (e) {
             console.error('[NOVA] Не удалось подготовить изображение', e);
-            toastr.error('Не удалось обработать изображение: ' + (e.message || ''));
+            toastr.error(t('Не удалось обработать изображение:') + ' ' + (e.message || ''));
         }
     }
 
@@ -4590,7 +4590,7 @@ sketch or construction lines.`,
                     setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
                 } catch (e) {
                     console.error('[NOVA] Не удалось скачать картинку', e);
-                    toastr.error('Не удалось скачать картинку: ' + (e.message || e));
+                    toastr.error(t('Не удалось скачать картинку:') + ' ' + (e.message || e));
                 }
             });
 
@@ -4633,15 +4633,15 @@ sketch or construction lines.`,
                 const value = $('#nova-image-viewer-prompt-input').val();
                 try {
                     await navigator.clipboard.writeText(value);
-                    toastr.success('Промпт скопирован');
+                    toastr.success(t('Промпт скопирован'));
                 } catch (e) {
-                    toastr.error('Не удалось скопировать промпт');
+                    toastr.error(t('Не удалось скопировать промпт'));
                 }
             });
 
             const triggerRegenerate = async (newPromptText = null) => {
                 const profile = getActiveImageProfile();
-                if (!profile) return toastr.warning('Не настроено подключение для генерации');
+                if (!profile) return toastr.warning(t('Не настроено подключение для генерации'));
 
                 const author = item.handle || item.sender_handle || item.senderName || '';
                 const promptText = newPromptText !== null ? newPromptText : text;
@@ -4693,7 +4693,7 @@ sketch or construction lines.`,
                     if (!viewerClosed) renderViewer();
                 } catch (e) {
                     console.error('[NOVA] Ошибка перегенерации', e);
-                    toastr.error('Ошибка: ' + (e.message || e));
+                    toastr.error(t('Ошибка:') + ' ' + (e.message || e));
                     delete item.imageRegenerating;
                     // Значок в фоне мог уже показаться (пользователь успел закрыть
                     // вьюер и уйти) — без этого он так и остался бы крутиться там
@@ -4708,7 +4708,7 @@ sketch or construction lines.`,
             $('#nova-image-viewer-regenerate').on('click', () => triggerRegenerate());
             $('#nova-image-viewer-edit-confirm').on('click', () => {
                 const newText = $('#nova-image-viewer-prompt-input').val().trim();
-                if (!newText) return toastr.warning('Промпт не может быть пустым');
+                if (!newText) return toastr.warning(t('Промпт не может быть пустым'));
                 triggerRegenerate(newText);
             });
         };
@@ -5419,7 +5419,7 @@ sketch or construction lines.`,
                 }
             } catch (e) {
                 console.error(e);
-                toastr.error("Ошибка при генерации ответа: " + describeApiError(e));
+                toastr.error(t("Ошибка при генерации ответа:") + " " + describeApiError(e));
                 const failedIdx = replyTarget.targetArray.indexOf(userReply);
                 if (failedIdx !== -1) replyTarget.targetArray.splice(failedIdx, 1);
                 saveFeed();
@@ -5545,7 +5545,7 @@ sketch or construction lines.`,
                     });
                 } catch (e) {
                     console.error('[NOVA] Не удалось подготовить аватар группы', e);
-                    toastr.error('Не удалось обработать изображение: ' + (e.message || ''));
+                    toastr.error(t('Не удалось обработать изображение:') + ' ' + (e.message || ''));
                 }
             });
 
@@ -5578,11 +5578,11 @@ sketch or construction lines.`,
                 });
 
                 if (selectedHandles.length < 2) {
-                    toastr.warning('Выберите хотя бы двух участников.');
+                    toastr.warning(t('Выберите хотя бы двух участников.'));
                     return;
                 }
                 if (!groupName) {
-                    toastr.warning('Введите название группы.');
+                    toastr.warning(t('Введите название группы.'));
                     return;
                 }
 
@@ -5593,7 +5593,7 @@ sketch or construction lines.`,
                         avatarPath = await uploadNovaImage(newGroupAvatar);
                     } catch (e) {
                         console.error('[NOVA] Не удалось загрузить аватар группы', e);
-                        toastr.warning('Группа создана без аватара: не удалось загрузить изображение.');
+                        toastr.warning(t('Группа создана без аватара: не удалось загрузить изображение.'));
                     }
                 }
                 $confirm.prop('disabled', false);
@@ -5918,10 +5918,10 @@ sketch or construction lines.`,
                 saveFeed();
                 openSingleDM(index);
                 renderDMs();
-                toastr.success('Аватар группы обновлён');
+                toastr.success(t('Аватар группы обновлён'));
             } catch (e) {
                 console.error('[NOVA] Не удалось сменить аватар группы', e);
-                toastr.error('Не удалось обновить аватар: ' + (e.message || ''));
+                toastr.error(t('Не удалось обновить аватар:') + ' ' + (e.message || ''));
             }
         });
 
@@ -6007,7 +6007,7 @@ sketch or construction lines.`,
                 insertThreadTranscript(index);
             } catch (e) {
                 console.error('[NOVA] Thread transcript insert failed', e);
-                toastr.error('Не удалось вставить переписку: ' + (e.message || ''));
+                toastr.error(t('Не удалось вставить переписку:') + ' ' + (e.message || ''));
             }
         });
 
@@ -6045,8 +6045,8 @@ sketch or construction lines.`,
 
             if (indicesToDelete.length === 0) return;
 
-            const label = pluralRu(indicesToDelete.length, 'сообщение', 'сообщения', 'сообщений');
-            novaConfirm(`Удалить ${label}? Это действие необратимо.`, () => {
+            const label = pluralUi(indicesToDelete.length, { ru: ['сообщение', 'сообщения', 'сообщений'], en: ['message', 'messages'] });
+            novaConfirm(`${t('Удалить')} ${label}? ${t('Это действие необратимо.')}`, () => {
                 indicesToDelete.sort((a, b) => b - a);
                 indicesToDelete.forEach(idx => {
                     revertRelationshipsDeep(thread.messages[idx]);
@@ -6064,7 +6064,7 @@ sketch or construction lines.`,
                 $('#nova-single-dm-delete-mode-btn').css('color', 'var(--nova-text-muted)');
 
                 openSingleDM(index);
-                toastr.success(`Удалено: ${label}.`);
+                toastr.success(`${t('Удалено:')} ${label}.`);
             });
         });
 
@@ -6146,7 +6146,7 @@ sketch or construction lines.`,
                 generateDMResponse(index, dataUrl);
             } catch (e) {
                 console.error('[NOVA] Не удалось предложить аватар', e);
-                toastr.error('Не удалось отправить фото: ' + (e.message || ''));
+                toastr.error(t('Не удалось отправить фото:') + ' ' + (e.message || ''));
             }
         });
 
@@ -6182,7 +6182,7 @@ sketch or construction lines.`,
                 generateDMResponse(index, dataUrl);
             } catch (e) {
                 console.error('[NOVA] Не удалось установить обои', e);
-                toastr.error('Не удалось установить обои: ' + (e.message || ''));
+                toastr.error(t('Не удалось установить обои:') + ' ' + (e.message || ''));
             }
         });
 
@@ -6220,7 +6220,7 @@ sketch or construction lines.`,
             // (пока предыдущий ответ ещё идёт) очистило бы ввод, а генерацию не
             // запустило — набранное просто пропадало бы
             if (isDMGenerating(thread)) {
-                toastr.info('Дождитесь ответа — по этой переписке уже идёт генерация.');
+                toastr.info(t('Дождитесь ответа — по этой переписке уже идёт генерация.'));
                 return;
             }
 
@@ -6246,7 +6246,7 @@ sketch or construction lines.`,
                     // сказать об этом сразу, чем тратить запрос к текстовой модели
                     // на промпт, по которому всё равно ничего не нарисуется
                     if (command.type === 'photo' && !getImageBudget()) {
-                        toastr.warning('Генерация изображений выключена в настройках Nova.');
+                        toastr.warning(t('Генерация изображений выключена в настройках Nova.'));
                         return;
                     }
                     $('#nova-single-dm-reply-input').val('').css('height', '');
@@ -6278,7 +6278,7 @@ sketch or construction lines.`,
                     imageThumb = uploaded.thumbnail;
                 } catch (e) {
                     console.error('[NOVA] Не удалось загрузить изображение', e);
-                    toastr.error('Не удалось загрузить изображение: ' + (e.message || ''));
+                    toastr.error(t('Не удалось загрузить изображение:') + ' ' + (e.message || ''));
                     $btn.prop('disabled', false);
                     return;
                 }
@@ -6465,7 +6465,18 @@ sketch or construction lines.`,
      * В групповой беседе подпись рисуется отдельно, поэтому такой префикс это мусор.
      */
     // Склонение: 1 сообщение, 2 сообщения, 5 сообщений
-    function pluralRu(count, one, few, many) {
+    /**
+     * Число + слово в верном числе — для интерфейса, не для языка ролевой (там
+     * пишет модель, ей это не нужно). Русский склоняется в три формы (1/2-4/5+),
+     * английский — только singular/plural, поэтому формы разные, а не перевод одной.
+     * @param {{ru: [string,string,string], en: [string,string]}} forms
+     */
+    function pluralUi(count, forms) {
+        if (getUiLanguage() === 'en') {
+            const [singular, plural] = forms.en;
+            return `${count} ${count === 1 ? singular : plural}`;
+        }
+        const [one, few, many] = forms.ru;
         const n = Math.abs(count) % 100;
         const n1 = n % 10;
         let word = many;
@@ -6517,7 +6528,7 @@ sketch or construction lines.`,
         const cause = String(error?.cause?.message || '').trim();
         const own = String(error?.message || error || '').trim();
         const raw = cause || own;
-        if (!raw) return 'Провайдер не вернул текста ошибки — смотрите консоль Таверны.';
+        if (!raw) return t('Провайдер не вернул текста ошибки — смотрите консоль Таверны.');
         return raw;
     }
 
@@ -7111,7 +7122,7 @@ sketch or construction lines.`,
                 thread.unread += newMessages.length;
                 updateUnreadBadge();
                 renderDMs();
-                toastr.success(`Новое сообщение от ${thread.name}!`);
+                toastr.success(`${t('Новое сообщение от')} ${thread.name}!`);
             }
 
             if (imageTargets.length) {
@@ -7123,7 +7134,7 @@ sketch or construction lines.`,
 
         } catch (e) {
             console.error("[NOVA] DM generation failed", e);
-            toastr.error("Ошибка в DM: " + describeApiError(e));
+            toastr.error(t("Ошибка в DM:") + " " + describeApiError(e));
             $loader.remove();
 
             // Несколько строк уходят ОДНИМ запросом (см. #nova-single-dm-reply-btn) —
@@ -7169,12 +7180,12 @@ sketch or construction lines.`,
         const { imagePath = '', imageThumb = '', imageDataUrl = '' } = attachment || {};
         const $container = $('#nova-feed-container');
         if ($('#nova-feed-loader').length) return; // Prevent multiple clicks
-        const $loader = $('<div id="nova-feed-loader" class="nova-loading" style="padding: 16px; border-bottom: 1px solid var(--nova-border); display: flex; justify-content: center; gap: 12px; align-items: center;"><i class="fa-solid fa-spinner fa-spin nova-spinner" style="font-size: 20px; color: var(--nova-accent);"></i><span style="color: var(--nova-text-muted);">Генерация ленты...</span></div>');
+        const $loader = $(`<div id="nova-feed-loader" class="nova-loading" style="padding: 16px; border-bottom: 1px solid var(--nova-border); display: flex; justify-content: center; gap: 12px; align-items: center;"><i class="fa-solid fa-spinner fa-spin nova-spinner" style="font-size: 20px; color: var(--nova-accent);"></i><span style="color: var(--nova-text-muted);">${t('Генерация ленты...')}</span></div>`);
         $container.prepend($loader);
-        
+
         const activeProfiles = getActiveProfiles();
         if (activeProfiles.length === 0) {
-            toastr.warning("Нет активных профилей для генерации постов.");
+            toastr.warning(t("Нет активных профилей для генерации постов."));
             $loader.remove();
             return;
         }
@@ -7367,7 +7378,7 @@ sketch or construction lines.`,
                         thread.unread += 1;
                     });
 
-                    toastr.success(`Новое сообщение от ${profile.name}${thread.isGroup ? ` в «${thread.name}»` : ''}!`);
+                    toastr.success(`${t('Новое сообщение от')} ${profile.name}${thread.isGroup ? ` ${t('в')} «${thread.name}»` : ''}!`);
                     updateUnreadBadge();
                 }
             }
@@ -7390,7 +7401,7 @@ sketch or construction lines.`,
             }
         } catch (e) {
             console.error("[NOVA] AI processing failed", e);
-            toastr.error("Ошибка генерации: " + describeApiError(e));
+            toastr.error(t("Ошибка генерации:") + " " + describeApiError(e));
             $loader.remove();
             if (userPostText) {
                 $('#nova-create-post-input').val(userPostText);
@@ -7402,7 +7413,7 @@ sketch or construction lines.`,
     }
 
     async function generateNPCFolder(note = '') {
-        toastr.info("ИИ анализирует мир для создания NPC...");
+        toastr.info(t("ИИ анализирует мир для создания NPC..."));
 
         const chatContext = await getChatContext();
         const prompt = NovaPrompts.generateNPCFolder(chatContext, note);
@@ -7411,9 +7422,11 @@ sketch or construction lines.`,
             const parsed = await callAIForJson(prompt, [], d => d && d.folder_name && d.npcs);
 
             const stContext = SillyTavern.getContext();
+            // Название папки — резервное на случай, если модель его не вернула:
+            // содержимое папки на языке РОЛЕВОЙ (это NPC, а не интерфейс), значит и это тоже
             const newFolder = {
                 id: 'folder_' + Date.now(),
-                name: parsed.folder_name || 'Сгенерированные NPC',
+                name: parsed.folder_name || (NovaPrompts.rp().code === 'en' ? 'Generated NPCs' : 'Сгенерированные NPC'),
                 icon: 'fa-robot',
                 chatIds: [stContext.chatId],
                 active: true,
@@ -7430,12 +7443,12 @@ sketch or construction lines.`,
             };
 
             customFolders.push(newFolder);
-            toastr.success(`Создана папка: ${newFolder.name}`);
+            toastr.success(`${t('Создана папка:')} ${newFolder.name}`);
             renderProfilesTab();
-            
+
         } catch (e) {
             console.error("[NOVA] NPC generation failed", e);
-            toastr.error("Ошибка при генерации NPC: " + describeApiError(e));
+            toastr.error(t("Ошибка при генерации NPC:") + " " + describeApiError(e));
         }
     }
 
@@ -7739,6 +7752,129 @@ sketch or construction lines.`,
         'Например: агрессивный, много смайлов': 'e.g.: aggressive, lots of emojis',
         'Активен в ленте': 'Active in the feed',
         'Удалить NPC': 'Delete NPC',
+
+        // ─── Динамические строки (тосты, диалоги подтверждения и т.п.) ──────────
+        'Введите сумму больше нуля.': 'Enter an amount greater than zero.',
+        'Чат пуст, вставлять переписку некуда.': 'The chat is empty, nothing to insert into.',
+        'Нет новых событий для вставки.': 'No new events to insert.',
+        'В чат вставлено': 'Inserted into the chat',
+        'и': 'and',
+        'Переписка': 'Chat',
+        'из переписки с': 'from the chat with',
+        'Удалить': 'Delete',
+        'Это действие необратимо.': 'This action cannot be undone.',
+        'вместе со всеми ответами?': 'along with all its replies?',
+        'вместе со всеми вложенными?': 'along with all its nested replies?',
+        'В этой переписке пока нечего вставлять.': 'Nothing to insert from this chat yet.',
+        'Все сообщения этой переписки уже вставлены в чат.': 'All messages from this chat are already inserted.',
+        'Чат пуст, синхронизация отменена.': 'The chat is empty, sync cancelled.',
+        'Синхронизация контекста NOVA...': 'Syncing NOVA context...',
+        'Нет новых событий для пересказа.': 'No new events to summarize.',
+        'События добавлены в чат как системное сообщение!': 'Events added to the chat as a system message!',
+        'Синхронизация': 'Sync',
+        'Модель вернула пустой пересказ — события остались непрочитанными.': 'The model returned an empty summary — events are still marked unread.',
+        'Не удалось синхронизировать контекст. Ошибка:': 'Failed to sync context. Error:',
+        'Ошибка': 'Error',
+        'ур.': 'lvl.',
+        '✨ Апгрейд отношений!': '✨ Relationship upgrade!',
+        '💔 Кризис отношений': '💔 Relationship crisis',
+        'Уровень отношений сверх 100% — цифра сама больше не растёт, а это продолжает': "Relationship level beyond 100% — the number itself stopped growing, but this keeps going",
+        'Уровень отношений глубже дна — цифра сама больше не падает, а это продолжает': "Relationship level below rock bottom — the number itself stopped falling, but this keeps going",
+        'MoodTube не найден на странице — расширение не установлено или ещё не загрузилось.': "MoodTube wasn't found on the page — the extension isn't installed, or hasn't loaded yet.",
+        'Трек не найден:': 'Track not found:',
+        'Картинка не сгенерирована:': 'Image was not generated:',
+        'Изображение не отправлено модели: главный API это не поддерживает. Выберите профиль подключения.':
+            "The image wasn't sent to the model: the main API doesn't support this. Choose a connection profile.",
+        'Ответ модели оборвался по лимиту токенов — часть постов потеряна. Увеличьте лимит или снизьте «Рассуждения».':
+            "The model's reply was cut off by the token limit — some posts were lost. Raise the limit or lower Reasoning.",
+        'У этой картинки не сохранился промпт — повторить нечем. Перегенерируйте пост целиком.':
+            "This image doesn't have a saved prompt — nothing to retry with. Regenerate the whole post instead.",
+        'Это не изображение.': 'This is not an image.',
+        'Не удалось обработать изображение:': 'Failed to process the image:',
+        'Не удалось скачать картинку:': 'Failed to download the image:',
+        'Промпт скопирован': 'Prompt copied',
+        'Не удалось скопировать промпт': 'Failed to copy the prompt',
+        'Не настроено подключение для генерации': 'No connection profile is configured for generation',
+        'Ошибка:': 'Error:',
+        'Промпт не может быть пустым': 'The prompt cannot be empty',
+        'Провайдер не вернул текста ошибки — смотрите консоль Таверны.': "The provider didn't return an error message — check Tavern's console.",
+        'Ошибка при генерации ответа:': 'Error generating the reply:',
+        'Выберите хотя бы двух участников.': 'Select at least two participants.',
+        'Введите название группы.': 'Enter a group name.',
+        'Группа создана без аватара: не удалось загрузить изображение.': "The group was created without an avatar: the image failed to upload.",
+        'Аватар группы обновлён': 'Group avatar updated',
+        'Не удалось обновить аватар:': 'Failed to update the avatar:',
+        'Не удалось вставить переписку:': 'Failed to insert the transcript:',
+        'Удалено:': 'Deleted:',
+        'Удалено.': 'Deleted.',
+        'Не удалось отправить фото:': 'Failed to send the photo:',
+        'Не удалось установить обои:': 'Failed to set the wallpaper:',
+        'Дождитесь ответа — по этой переписке уже идёт генерация.': 'Wait for the reply — this chat already has a generation in progress.',
+        'Генерация изображений выключена в настройках Nova.': 'Image generation is disabled in NOVA settings.',
+        'Не удалось загрузить изображение:': 'Failed to upload the image:',
+        'Новое сообщение от': 'New message from',
+        'Ошибка в DM:': 'DM error:',
+        'Генерация ленты...': 'Generating feed...',
+        'Нет активных профилей для генерации постов.': 'No active profiles to generate posts for.',
+        'в': 'in',
+        'Ошибка генерации:': 'Generation error:',
+        'ИИ анализирует мир для создания NPC...': 'The AI is analyzing the world to create NPCs...',
+        'Создана папка:': 'Folder created:',
+        'Ошибка при генерации NPC:': 'Error generating NPCs:',
+        'Профиль': 'Profile',
+        'не найден.': 'not found.',
+        'Синтез...': 'Synthesizing...',
+        'Размер пересказа:': 'Summary size:',
+        'Язык ролевой:': 'Roleplay language:',
+        'Список профилей обновлен': 'Profile list refreshed',
+        'изменения сохранены': 'changes saved',
+        'блок удалён': 'block deleted',
+        'Хранилище сжато': 'Storage compacted',
+        'Настройки NOVA сохранены': 'NOVA settings saved',
+        'Нет постов с известной генерацией (старые посты).': 'No posts with known generation data (old posts).',
+        'Последняя генерация удалена.': 'Last generation deleted.',
+        'Персона создана': 'Persona created',
+        'создана': 'created',
+        'Не удалось загрузить референс:': 'Failed to load the reference:',
+        'Без имени': 'Unnamed',
+        '— в архиве.': '— archived.',
+        'В sillyimages не заполнены эндпоинт и ключ — брать оттуда пока нечего.': 'sillyimages has no endpoint and key set — nothing to pull from there yet.',
+        'Сначала создайте профиль подключения для картинок.': 'First create a connection profile for images.',
+        'Загружено моделей:': 'Models loaded:',
+        'сохранён': 'saved',
+        'Профиль работает': 'The profile works',
+        'Промпт': 'Prompt',
+        'Это последний промпт — удалить его нельзя.': "This is the last prompt — it can't be deleted.",
+        'Стиль': 'Style',
+        'Это последний стиль — удалить его нельзя.': "This is the last style — it can't be deleted.",
+        'Не удалось загрузить превью:': 'Failed to load the preview:',
+        'больше не существует — NOVA переключён на Главный API.': 'no longer exists — NOVA switched to the Main API.',
+        'Профиль для': 'Profile for',
+        'сгенерирован! Не забудьте сохранить.': 'generated! Remember to save.',
+        'Профиль персонажа или NPC не найден': 'Character or NPC profile not found',
+        'Изменения отменены': 'Changes discarded',
+        'сохранён!': 'saved!',
+        'Не забудьте сохранить профиль': 'Remember to save the profile',
+        'Не удалось прочитать изображение': 'Failed to read the image',
+        'Имя и юзернейм обязательны': 'Name and username are required',
+        'Папка не найдена': 'Folder not found',
+        'перемещён в': 'moved to',
+        'Изменения сохранены': 'Changes saved',
+        'НПС создан!': 'NPC created!',
+        'удалён': 'deleted',
+        'добавлена в этот чат': 'added to this chat',
+        'удалена': 'deleted',
+        'перемещена в Архив': 'moved to Archive',
+        'Название не может быть пустым.': 'The name cannot be empty.',
+        'Папка переименована': 'Folder renamed',
+        'Перемещено в': 'Moved to',
+        'Скопировано в': 'Copied to',
+        'Возвращено NPC:': 'NPCs returned:',
+        'Копия': 'Copy',
+        'создана в': 'created in',
+        'Отношения с': 'Relationship with',
+        'пересчитаны': 'recalculated',
+        'Не удалось пересчитать:': 'Failed to recalculate:',
     };
 
     /** Перевод одной строки — для JS-строк, собираемых динамически. RU остаётся RU, если словарь молчит. */
@@ -7850,7 +7986,7 @@ sketch or construction lines.`,
             if (profile) {
                 openPublicProfile(profile);
             } else {
-                toastr.info(`Профиль ${handle} не найден.`);
+                toastr.info(`${t('Профиль')} ${handle} ${t('не найден.')}`);
             }
         });
         
@@ -7902,7 +8038,7 @@ sketch or construction lines.`,
             
             $btn.prop('disabled', true);
             const originalHtml = $btn.html();
-            $btn.html('<i class="fa-solid fa-spinner fa-spin"></i> Синтез...');
+            $btn.html(`<i class="fa-solid fa-spinner fa-spin"></i> ${t('Синтез...')}`);
             
             console.log("[NOVA] Manual sync button clicked");
             try {
@@ -7922,7 +8058,7 @@ sketch or construction lines.`,
                 insertEventsTranscript();
             } catch (e) {
                 console.error('[NOVA] Transcript insert failed', e);
-                toastr.error('Не удалось вставить переписку: ' + (e.message || ''));
+                toastr.error(t('Не удалось вставить переписку:') + ' ' + (e.message || ''));
             }
         });
 
@@ -7930,7 +8066,7 @@ sketch or construction lines.`,
             novaSummarySize = $(this).val();
             saveFolders();
             const label = $(this).find('option:selected').text();
-            toastr.success("Размер пересказа: " + label);
+            toastr.success(t("Размер пересказа:") + " " + label);
         });
 
         // Сохраняем сразу, не дожидаясь «Сохранить настройки»: промпты читают язык
@@ -7941,7 +8077,7 @@ sketch or construction lines.`,
             if (!extensionSettings.NOVA) extensionSettings.NOVA = {};
             extensionSettings.NOVA.rp_language = $(this).val();
             saveSettingsDebounced();
-            toastr.success("Язык ролевой: " + $(this).find('option:selected').text());
+            toastr.success(t("Язык ролевой:") + " " + $(this).find('option:selected').text());
         });
 
         // Тот же принцип: сохраняем сразу, и applyUiLanguageToStaticPanel() тут же
@@ -7958,7 +8094,7 @@ sketch or construction lines.`,
         $('#nova-refresh-proxy-btn').on('click', (e) => {
             e.preventDefault();
             refreshConnectionProfiles();
-            toastr.info("Список профилей обновлен");
+            toastr.info(t("Список профилей обновлен"));
         });
 
         $(document).off('click', '.nova-history-jump-btn').on('click', '.nova-history-jump-btn', function() {
@@ -7997,7 +8133,7 @@ sketch or construction lines.`,
                     );
                     stContext.saveChat();
                     if (typeof stContext.updateChatUI === 'function') stContext.updateChatUI();
-                    toastr.success(`${kind.title}: изменения сохранены`);
+                    toastr.success(`${kind.title}: ${t('изменения сохранены')}`);
                 }
             }
         });
@@ -8028,7 +8164,7 @@ sketch or construction lines.`,
                         renderFeed();
                         renderDMs();
 
-                        toastr.success(`${kind.title}: блок удалён`);
+                        toastr.success(`${kind.title}: ${t('блок удалён')}`);
                         renderHistoryTab();
                     }
                 }
@@ -8048,7 +8184,7 @@ sketch or construction lines.`,
                 $result.text(uniqueImages === 0
                     ? 'Ничего не нашлось — всё уже хранится файлами.'
                     : `Готово: ${uniqueImages} картинок перенесено в файлы, заменено ${fieldsUpdated} вхождений.`);
-                if (fieldsUpdated > 0) toastr.success('Хранилище сжато', 'NOVA');
+                if (fieldsUpdated > 0) toastr.success(t('Хранилище сжато'), 'NOVA');
             } catch (e) {
                 console.error('[NOVA] compactStorage failed', e);
                 $result.text('Не получилось: ' + String(e.message || e));
@@ -8086,7 +8222,7 @@ sketch or construction lines.`,
             extensionSettings.NOVA.ui_language = $('#nova-ui-language').val() || 'ru';
 
             saveSettingsDebounced();
-            toastr.success("Настройки NOVA сохранены");
+            toastr.success(t("Настройки NOVA сохранены"));
         });
         
         $('#nova-refresh-feed-btn').on('click', () => {
@@ -8106,14 +8242,14 @@ sketch or construction lines.`,
             if (feedPosts.length === 0) return;
             const maxBatchId = Math.max(...feedPosts.map(p => p.batchId || 0));
             if (maxBatchId === 0 || !isFinite(maxBatchId)) {
-                toastr.warning('Нет постов с известной генерацией (старые посты).');
+                toastr.warning(t('Нет постов с известной генерацией (старые посты).'));
                 return;
             }
             feedPosts.filter(p => p.batchId === maxBatchId).forEach(revertRelationshipsDeep);
             feedPosts = feedPosts.filter(p => p.batchId !== maxBatchId);
             saveFeed();
             renderFeed();
-            toastr.success('Последняя генерация удалена.');
+            toastr.success(t('Последняя генерация удалена.'));
         });
 
         $('#nova-delete-select-mode').on('click', () => {
@@ -8132,8 +8268,8 @@ sketch or construction lines.`,
         $('#nova-feed-confirm-delete-btn').on('click', () => {
             if (selectedFeedPosts.size === 0) return;
 
-            const label = pluralRu(selectedFeedPosts.size, 'пост', 'поста', 'постов');
-            novaConfirm(`Удалить ${label} вместе со всеми ответами? Это действие необратимо.`, () => {
+            const label = pluralUi(selectedFeedPosts.size, { ru: ['пост', 'поста', 'постов'], en: ['post', 'posts'] });
+            novaConfirm(`${t('Удалить')} ${label} ${t('вместе со всеми ответами?')} ${t('Это действие необратимо.')}`, () => {
                 // Delete from highest index to lowest to avoid shifting issues
                 const indices = Array.from(selectedFeedPosts).sort((a, b) => b - a);
                 indices.forEach(idx => {
@@ -8145,7 +8281,7 @@ sketch or construction lines.`,
                 feedSelectMode = false;
                 selectedFeedPosts.clear();
                 renderFeed();
-                toastr.success(`Удалено: ${label}.`);
+                toastr.success(`${t('Удалено:')} ${label}.`);
             });
         });
 
@@ -8204,7 +8340,7 @@ sketch or construction lines.`,
                     imageThumb = uploaded.thumbnail;
                 } catch (e) {
                     console.error('[NOVA] Не удалось загрузить изображение', e);
-                    toastr.error('Не удалось загрузить изображение: ' + (e.message || ''));
+                    toastr.error(t('Не удалось загрузить изображение:') + ' ' + (e.message || ''));
                     $btn.prop('disabled', false);
                     return;
                 }
@@ -8267,7 +8403,7 @@ sketch or construction lines.`,
             store.activePersonaId = id;
             saveSettingsDebounced();
             renderCharsTab();
-            toastr.success('Персона создана');
+            toastr.success(t('Персона создана'));
         });
 
         $(document).off('click.novaPersonaList').on('click.novaPersonaList', '#nova-persona-list .nova-select-option', function() {
@@ -8309,7 +8445,7 @@ sketch or construction lines.`,
                 customFolders.push(newFolder);
                 saveFolders();
                 renderProfilesTab();
-                toastr.success(`Папка "${folderName}" создана`);
+                toastr.success(`${t('Папка')} "${folderName}" ${t('создана')}`);
             }
         });
 
@@ -8463,8 +8599,8 @@ sketch or construction lines.`,
             const post = feedPosts[postIndex];
             if (!post) return;
 
-            const label = pluralRu(selectedReplyKeys.size, 'ответ', 'ответа', 'ответов');
-            novaConfirm(`Удалить ${label} вместе со всеми вложенными? Это действие необратимо.`, () => {
+            const label = pluralUi(selectedReplyKeys.size, { ru: ['ответ', 'ответа', 'ответов'], en: ['reply', 'replies'] });
+            novaConfirm(`${t('Удалить')} ${label} ${t('вместе со всеми вложенными?')} ${t('Это действие необратимо.')}`, () => {
                 // Глубже — раньше: если сначала убрать родителя, путь до отдельно
                 // выбранного потомка станет невалидным ДО того, как мы до него дойдём
                 const paths = Array.from(selectedReplyKeys)
@@ -8496,7 +8632,7 @@ sketch or construction lines.`,
                 selectedReplyKeys.clear();
                 openSinglePost(postIndex);
                 renderFeed();
-                toastr.success(`Удалено: ${label}.`);
+                toastr.success(`${t('Удалено:')} ${label}.`);
             });
         });
 
@@ -8919,7 +9055,7 @@ sketch or construction lines.`,
                 }
             } catch (e) {
                 console.error('[NOVA] Не удалось загрузить референс', e);
-                toastr.error('Не удалось загрузить референс: ' + (e.message || ''));
+                toastr.error(t('Не удалось загрузить референс:') + ' ' + (e.message || ''));
             } finally {
                 pendingRefSlotId = null;
             }
@@ -8974,7 +9110,7 @@ sketch or construction lines.`,
             ref.archived = true;
             commit();
             renderReferenceSlots();
-            toastr.info(`«${ref.name || 'Без имени'}» — в архиве.`);
+            toastr.info(`«${ref.name || t('Без имени')}» ${t('— в архиве.')}`);
         });
 
         $(document).on('click', '.nova-ref-restore', function() {
@@ -9013,7 +9149,7 @@ sketch or construction lines.`,
             const cfg = getImageSettings();
             cfg.use_sillyimages = $(this).is(':checked');
             if (cfg.use_sillyimages && !readSillyImagesProfile()) {
-                toastr.warning('В sillyimages не заполнены эндпоинт и ключ — брать оттуда пока нечего.', 'NOVA');
+                toastr.warning(t('В sillyimages не заполнены эндпоинт и ключ — брать оттуда пока нечего.'), 'NOVA');
             }
             saveImageSettings();
             renderImageSettings();
@@ -9023,7 +9159,7 @@ sketch or construction lines.`,
             const cfg = getImageSettings();
             cfg.enabled = $(this).is(':checked');
             if (cfg.enabled && !getActiveImageProfile()) {
-                toastr.warning('Сначала создайте профиль подключения для картинок.', 'NOVA');
+                toastr.warning(t('Сначала создайте профиль подключения для картинок.'), 'NOVA');
             }
             saveImageSettings();
             updateImageBadge();
@@ -9066,7 +9202,7 @@ sketch or construction lines.`,
                 const models = await fetchImageModels(draft);
                 imageModelCache.set(draft.id, models);
                 renderModelSelect({ ...draft, model: draft.model || models[0] });
-                toastr.success(`Загружено моделей: ${models.length}`, 'NOVA');
+                toastr.success(`${t('Загружено моделей:')} ${models.length}`, 'NOVA');
             } catch (e) {
                 console.error('[NOVA] Не удалось получить список моделей', e);
                 toastr.error(String(e.message || e), 'NOVA', { timeOut: 12000 });
@@ -9125,7 +9261,7 @@ sketch or construction lines.`,
             cfg.active_profile = profile.id;
             saveImageSettings();
             renderImageSettings();
-            toastr.success(`Профиль «${profile.name}» сохранён`, 'NOVA');
+            toastr.success(`${t('Профиль')} «${profile.name}» ${t('сохранён')}`, 'NOVA');
         });
 
         $('#nova-image-profile-delete').on('click', () => {
@@ -9155,7 +9291,7 @@ sketch or construction lines.`,
                     profile,
                 );
                 openImageViewer({ image: dataUrl, prompt: 'Тестовая генерация прошла успешно' });
-                toastr.success('Профиль работает', 'NOVA');
+                toastr.success(t('Профиль работает'), 'NOVA');
             } catch (e) {
                 console.error('[NOVA] Проверка профиля картинок не прошла', e);
                 toastr.error(String(e.message || e), 'NOVA', { timeOut: 12000 });
@@ -9199,7 +9335,7 @@ sketch or construction lines.`,
             cfg.active_preset = preset.id;
             saveImageSettings();
             renderImageSettings();
-            toastr.success(`Промпт «${preset.name}» сохранён`, 'NOVA');
+            toastr.success(`${t('Промпт')} «${preset.name}» ${t('сохранён')}`, 'NOVA');
         });
 
         $('#nova-image-preset-delete').on('click', () => {
@@ -9207,7 +9343,7 @@ sketch or construction lines.`,
             const preset = getActiveImagePreset();
             if (!preset) return;
             if (cfg.presets.length <= 1) {
-                toastr.info('Это последний промпт — удалить его нельзя.');
+                toastr.info(t('Это последний промпт — удалить его нельзя.'));
                 return;
             }
             novaConfirm(`Удалить промпт «${preset.name}»?`, () => {
@@ -9252,7 +9388,7 @@ sketch or construction lines.`,
             cfg.active_style = style.id;
             saveImageSettings();
             renderImageSettings();
-            toastr.success(`Стиль «${style.name}» сохранён`, 'NOVA');
+            toastr.success(`${t('Стиль')} «${style.name}» ${t('сохранён')}`, 'NOVA');
         });
 
         $('#nova-image-style-delete').on('click', () => {
@@ -9260,7 +9396,7 @@ sketch or construction lines.`,
             const style = getActiveImageStyle();
             if (!style) return;
             if (cfg.styles.length <= 1) {
-                toastr.info('Это последний стиль — удалить его нельзя.');
+                toastr.info(t('Это последний стиль — удалить его нельзя.'));
                 return;
             }
             novaConfirm(`Удалить стиль «${style.name}»?`, () => {
@@ -9290,7 +9426,7 @@ sketch or construction lines.`,
                 renderImageSettings();
             } catch (e) {
                 console.error('[NOVA] Не удалось загрузить превью стиля', e);
-                toastr.error('Не удалось загрузить превью: ' + (e.message || ''));
+                toastr.error(t('Не удалось загрузить превью:') + ' ' + (e.message || ''));
             }
         });
     }
@@ -9351,7 +9487,7 @@ sketch or construction lines.`,
         } else {
             $select.val('');
             if (saved) {
-                toastr.warning(`Профиль подключения «${saved}» больше не существует — NOVA переключён на Главный API.`);
+                toastr.warning(`${t('Профиль подключения')} «${saved}» ${t('больше не существует — NOVA переключён на Главный API.')}`);
                 extensionSettings.NOVA.connection_profile = '';
                 extensionSettings.NOVA.connection_profile_id = '';
                 stContext.saveSettingsDebounced?.();
@@ -9441,7 +9577,7 @@ sketch or construction lines.`,
             $el.find('.npc-style').val(data.style || "");
 
             $el.find('.nova-revert-profile-btn').show();
-            toastr.success(`Профиль для ${char.name} сгенерирован! Не забудьте сохранить.`);
+            toastr.success(`${t('Профиль для')} ${char.name} ${t('сгенерирован! Не забудьте сохранить.')}`);
         } catch (e) {
             console.error("[NOVA] Char profile generation failed", e);
         } finally {
@@ -9581,7 +9717,7 @@ sketch or construction lines.`,
         if (profile) {
             openPublicProfile(profile);
         } else {
-            toastr.info("Профиль персонажа или NPC не найден");
+            toastr.info(t("Профиль персонажа или NPC не найден"));
         }
     });
 
@@ -9816,7 +9952,7 @@ sketch or construction lines.`,
                             setCardAvatar($el, char.avatar ? (char.isUser ? `/User Avatars/${char.avatar}` : `/characters/${char.avatar}`) : '');
                         }
                         $el.find('.nova-revert-profile-btn').hide();
-                        toastr.info('Изменения отменены');
+                        toastr.info(t('Изменения отменены'));
                     }
                 });
 
@@ -9845,7 +9981,7 @@ sketch or construction lines.`,
                         banner: bannerValue
                     };
                     saveSettingsDebounced();
-                    toastr.success(`Профиль ${name} сохранён!`);
+                    toastr.success(`${t('Профиль')} ${name} ${t('сохранён!')}`);
                     
                     // Обновить аватар и имя в превью
                     $el.find('.nova-profile-name').text($el.find('.npc-name').val());
@@ -9881,7 +10017,7 @@ sketch or construction lines.`,
                         $el.find('.nova-banner-empty-icon').hide();
                         $el.find('.nova-banner-clear-btn').show();
                         $el.find('.nova-banner-upload-wrapper').css('border-style', 'solid');
-                        toastr.info('Не забудьте сохранить профиль');
+                        toastr.info(t('Не забудьте сохранить профиль'));
                         const stored = await storeProfileImage(dataUrl);
                         $el.data('custom-banner', stored);
                         $el.find('.nova-banner-preview').attr('src', stored);
@@ -9896,7 +10032,7 @@ sketch or construction lines.`,
                     $el.find('.nova-banner-empty-icon').show();
                     $(this).hide();
                     $el.find('.nova-banner-upload-wrapper').css('border-style', 'dashed');
-                    toastr.info('Не забудьте сохранить профиль');
+                    toastr.info(t('Не забудьте сохранить профиль'));
                 });
                 
                 $el.find('.nova-avatar-upload-input').on('change', function(e) {
@@ -9906,7 +10042,7 @@ sketch or construction lines.`,
                         // Превью сразу, путь вместо base64 — после загрузки (см. storeProfileImage)
                         $el.data('custom-avatar', dataUrl);
                         setCardAvatar($el, dataUrl);
-                        toastr.info('Не забудьте сохранить профиль');
+                        toastr.info(t('Не забудьте сохранить профиль'));
                         const stored = await storeProfileImage(dataUrl);
                         $el.data('custom-avatar', stored);
                         setCardAvatar($el, stored);
@@ -9993,7 +10129,7 @@ sketch or construction lines.`,
         reader.onload = (event) => {
             const img = new Image();
             img.onload = () => buildCropper(img);
-            img.onerror = () => toastr.error('Не удалось прочитать изображение');
+            img.onerror = () => toastr.error(t('Не удалось прочитать изображение'));
             img.src = event.target.result;
         };
         reader.readAsDataURL(file);
@@ -10289,7 +10425,7 @@ sketch or construction lines.`,
         const name = $('#nova-create-npc-name').val().trim();
         let handle = $('#nova-create-npc-handle').val().trim();
         if (!name || !handle) {
-            toastr.error('Имя и юзернейм обязательны');
+            toastr.error(t('Имя и юзернейм обязательны'));
             return;
         }
         if (!handle.startsWith('@')) handle = '@' + handle;
@@ -10297,7 +10433,7 @@ sketch or construction lines.`,
         const targetFolderId = $('#nova-create-npc-folder-select').val();
         const targetFolder = getAllFolders().find(f => f.id === targetFolderId);
         if (!targetFolder) {
-            toastr.error('Папка не найдена');
+            toastr.error(t('Папка не найдена'));
             return;
         }
 
@@ -10320,9 +10456,9 @@ sketch or construction lines.`,
             const currentFolder = findNpcFolder(npc.id);
             if (currentFolder && currentFolder.id !== targetFolderId) {
                 moveNpcToFolder(npc, targetFolderId);
-                toastr.success(`«${npc.name}» перемещён в «${targetFolder.name}»`);
+                toastr.success(`«${npc.name}» ${t('перемещён в')} «${targetFolder.name}»`);
             } else {
-                toastr.success('Изменения сохранены');
+                toastr.success(t('Изменения сохранены'));
             }
             saveFolders();
             // Подтягиваем новое имя/аватар в уже опубликованные посты
@@ -10330,7 +10466,7 @@ sketch or construction lines.`,
         } else {
             targetFolder.npcs.push({ id: 'npc_' + Date.now(), ...fields });
             saveFolders();
-            toastr.success('НПС создан!');
+            toastr.success(t('НПС создан!'));
         }
 
         $('#nova-view-create-npc').removeClass('active');
@@ -10351,7 +10487,7 @@ sketch or construction lines.`,
             if (idx !== -1) folder.npcs.splice(idx, 1);
             saveFolders();
         }
-        toastr.success(`NPC "${npc.name}" удалён`);
+        toastr.success(`NPC "${npc.name}" ${t('удалён')}`);
         if (onDone) onDone();
     }
 
@@ -10406,7 +10542,7 @@ sketch or construction lines.`,
                     if (!Array.isArray(folder.chatIds)) folder.chatIds = [];
                     if (!folder.chatIds.includes(currentChatId)) folder.chatIds.push(currentChatId);
                     saveFolders();
-                    toastr.success(`Папка "${folder.name}" добавлена в этот чат`);
+                    toastr.success(`${t('Папка')} "${folder.name}" ${t('добавлена в этот чат')}`);
                     renderProfilesTab();
                 });
             } else {
@@ -10426,7 +10562,7 @@ sketch or construction lines.`,
                         const idx = customFolders.findIndex(f => f.id === folder.id);
                         if (idx !== -1) customFolders.splice(idx, 1);
                         saveFolders();
-                        toastr.success(`Папка "${folder.name}" удалена`);
+                        toastr.success(`${t('Папка')} "${folder.name}" ${t('удалена')}`);
                         renderProfilesTab();
                     }
                 });
@@ -10440,7 +10576,7 @@ sketch or construction lines.`,
                     folder.chatIds = (Array.isArray(folder.chatIds) ? folder.chatIds : [])
                         .filter(id => id !== currentChatId);
                     saveFolders();
-                    toastr.success(`Папка "${folder.name}" перемещена в Архив`);
+                    toastr.success(`${t('Папка')} "${folder.name}" ${t('перемещена в Архив')}`);
                     renderProfilesTab();
                 });
             }
@@ -10490,14 +10626,14 @@ sketch or construction lines.`,
             if (name === null) return;
             const trimmed = String(name).trim();
             if (!trimmed) {
-                toastr.warning('Название не может быть пустым.');
+                toastr.warning(t('Название не может быть пустым.'));
                 return;
             }
             folder.name = trimmed;
             saveFolders();
             $('#nova-folder-title').text(trimmed);
             renderProfilesTab();
-            toastr.success('Папка переименована');
+            toastr.success(t('Папка переименована'));
         });
 
         const $masterToggle = $('#nova-folder-master-toggle');
@@ -10525,7 +10661,7 @@ sketch or construction lines.`,
             const target = getAllFolders().find(f => f.id === targetId);
             const moving = folder.npcs.filter(n => selectedNpcIds.has(n.id));
             moving.forEach(n => moveNpcToFolder(n, targetId));
-            toastr.success(`Перемещено в «${target.name}»: ${moving.length}`);
+            toastr.success(`${t('Перемещено в')} «${target.name}»: ${moving.length}`);
             selectedNpcIds.clear();
             npcSelectMode = false;
             renderProfilesTab();
@@ -10538,7 +10674,7 @@ sketch or construction lines.`,
             const target = getAllFolders().find(f => f.id === targetId);
             const copying = folder.npcs.filter(n => selectedNpcIds.has(n.id));
             copying.forEach(n => copyNpcToFolder(n, targetId));
-            toastr.success(`Скопировано в «${target.name}»: ${copying.length}`);
+            toastr.success(`${t('Скопировано в')} «${target.name}»: ${copying.length}`);
             selectedNpcIds.clear();
             npcSelectMode = false;
             renderProfilesTab();
@@ -10568,7 +10704,7 @@ sketch or construction lines.`,
                 $restoreBtn.css('display', 'block').off('click').on('click', () => {
                     missing.forEach(seed => folder.npcs.push(JSON.parse(JSON.stringify(seed))));
                     saveFolders();
-                    toastr.success(`Возвращено NPC: ${missing.length}`);
+                    toastr.success(`${t('Возвращено NPC:')} ${missing.length}`);
                     renderProfilesTab();
                     openFolderOverlay(folder);
                 });
@@ -10799,7 +10935,7 @@ sketch or construction lines.`,
             } else if (action === 'copy') {
                 const target = getAllFolders().find(f => f.id === targetId);
                 if (copyNpcToFolder(npc, targetId)) {
-                    toastr.success(`Копия «${npc.name}» создана в «${target.name}»`);
+                    toastr.success(`${t('Копия')} «${npc.name}» ${t('создана в')} «${target.name}»`);
                     renderProfilesTab();
                 }
             } else if (action === 'delete') {
@@ -10939,7 +11075,7 @@ sketch or construction lines.`,
         });
 
         const items = collectGalleryItems();
-        $('#nova-gallery-count').text(items.length ? pluralRu(items.length, 'изображение', 'изображения', 'изображений') : '');
+        $('#nova-gallery-count').text(items.length ? pluralUi(items.length, { ru: ['изображение', 'изображения', 'изображений'], en: ['image', 'images'] }) : '');
 
         if (!items.length) {
             $grid.append(`<div style="grid-column: 1 / -1; color: var(--nova-text-muted); text-align: center; padding: 40px; line-height: 1.5;">
@@ -11057,9 +11193,9 @@ sketch or construction lines.`,
             // падает на самом дне.
             const tier = rec.tier || 0;
             const tierBadge = tier > 0
-                ? ` <span class="nova-relationship-tier-badge positive" title="Уровень отношений сверх 100% — цифра сама больше не растёт, а это продолжает">✨ ур. ${tier}</span>`
+                ? ` <span class="nova-relationship-tier-badge positive" title="${t('Уровень отношений сверх 100% — цифра сама больше не растёт, а это продолжает')}">✨ ${t('ур.')} ${tier}</span>`
                 : tier < 0
-                ? ` <span class="nova-relationship-tier-badge negative" title="Уровень отношений глубже дна — цифра сама больше не падает, а это продолжает">💔 ур. ${Math.abs(tier)}</span>`
+                ? ` <span class="nova-relationship-tier-badge negative" title="${t('Уровень отношений глубже дна — цифра сама больше не падает, а это продолжает')}">💔 ${t('ур.')} ${Math.abs(tier)}</span>`
                 : '';
 
             // Статус — на своей строке во всю ширину, а не втиснут в узкую правую
@@ -11162,10 +11298,10 @@ sketch or construction lines.`,
             const $icon = $btn.find('i').removeClass('fa-wand-magic-sparkles').addClass('fa-spinner fa-spin');
             try {
                 await reassessRelationship(profile);
-                toastr.success(`Отношения с «${profile.name}» пересчитаны`, 'NOVA');
+                toastr.success(`${t('Отношения с')} «${profile.name}» ${t('пересчитаны')}`, 'NOVA');
             } catch (err) {
                 console.error('[NOVA] Не удалось пересчитать отношения', err);
-                toastr.error('Не удалось пересчитать: ' + (err.message || ''));
+                toastr.error(t('Не удалось пересчитать:') + ' ' + (err.message || ''));
             } finally {
                 $icon.removeClass('fa-spinner fa-spin').addClass('fa-wand-magic-sparkles');
                 $btn.data('busy', false);
@@ -11335,7 +11471,7 @@ sketch or construction lines.`,
             openSinglePost(target.feedIndex);
         }
         renderFeed();
-        toastr.success('Удалено.');
+        toastr.success(t('Удалено.'));
     }
 
     /**
@@ -11463,7 +11599,7 @@ sketch or construction lines.`,
         target.thread.messages.splice(target.msgIndex, 1);
         saveFeed();
         openSingleDM(target.threadIndex);
-        toastr.success('Удалено.');
+        toastr.success(t('Удалено.'));
     }
 
     /** Своё сообщение убираем вместе с тем, что персонаж ответил НА НЕГО (до следующего своего). */
