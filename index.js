@@ -291,8 +291,19 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
             if (state.active !== undefined) defaultFolder.active = state.active;
 
             if (Array.isArray(state.npcsData)) {
-                // Новый формат: папка Default редактируется целиком
-                defaultFolder.npcs = state.npcsData;
+                // Новый формат: папка Default редактируется целиком. Для НЕотредактированных
+                // дефолтных NPC (имя/био/стиль всё ещё совпадают с одним из вариантов сида)
+                // подставляем контент под ТЕКУЩИЙ язык ролевой — иначе NPC навсегда останутся
+                // на том языке, что был при первом сохранении. Ручные правки юзера не трогаем.
+                const seedById = new Map(DEFAULT_NPCS_SEED.map(s => [s.id, s]));
+                defaultFolder.npcs = state.npcsData.map(npc => {
+                    const seed = seedById.get(npc.id);
+                    if (!seed) return npc;
+                    const matchesRu = npc.name === seed.ru.name && npc.desc === seed.ru.desc && npc.style === seed.ru.style;
+                    const matchesEn = npc.name === seed.en.name && npc.desc === seed.en.desc && npc.style === seed.en.style;
+                    if (!matchesRu && !matchesEn) return npc;
+                    return { ...npc, ...(NovaPrompts.rp().code === 'en' ? seed.en : seed.ru) };
+                });
             } else if (state.npcs) {
                 // Старый формат: сохранялись только флаги активности
                 defaultFolder.npcs.forEach(npc => {
