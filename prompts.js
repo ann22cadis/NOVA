@@ -244,7 +244,11 @@ On THEIR first tagged reaction, don't treat them as if meeting ${userHandle} for
      */
     relationshipReassessPrompt(profileInfo, chatContext, userHandle) {
         const L = rp();
-        return `You are analyzing a roleplay to assess a relationship. The character being assessed:
+        return `You are analyzing a roleplay to assess a relationship.
+
+CRITICAL: write "status" and "reason" below in ${L.NAME}, REGARDLESS of what language the character profile or the roleplay context below are written in.
+
+The character being assessed:
 ${profileInfo}
 
 FULL ROLEPLAY CONTEXT SO FAR:
@@ -748,6 +752,8 @@ NO MARKDOWN, NO OTHER TEXT, JUST VALID JSON.${imageInstruction}`;
         const L = rp();
         return `You are a creative AI. Your task is to create a social media profile (like Twitter) for a character from a roleplaying game.
 
+CRITICAL: write "desc" and "style" in ${L.NAME}, REGARDLESS of what language the character card below is written in.
+
 CHARACTER NAME: ${charName}
 CHARACTER CARD:
 ${charDesc}
@@ -799,7 +805,9 @@ OUTPUT FORMAT:
             : ``;
 
         return `You are an AI assistant summarizing the recent events from a simulated social media app (NOVA/Twitter).
-Your task is to provide a summary of what just happened in the social network, so the characters in the roleplay know about it.${previousSummaryBlock}
+Your task is to provide a summary of what just happened in the social network, so the characters in the roleplay know about it.
+
+CRITICAL: write the summary in ${L.NAME}, REGARDLESS of what language the feed posts, DMs or previous summary below are written in.${previousSummaryBlock}
 ${whoIsWhoBlock}
 RECENT PUBLIC FEED POSTS:
 ${feedContext ? feedContext : "(No new posts)"}
@@ -815,7 +823,7 @@ ${sizeInstruction}
 - IMPORTANT: "${userName}" refers to a real person taking part in this roleplay. Treat the characters as aware they are interacting with an actual participant, not a background element.
 - Do NOT invent events that are not in the data above.
 - This is injected as a system note.
-- OUTPUT ONLY THE TEXT SUMMARY IN ${L.NAME} LANGUAGE. Do not output JSON. Do not use square brackets.
+- OUTPUT ONLY THE TEXT SUMMARY IN ${L.NAME} LANGUAGE, no matter what language the source material above is in. Do not output JSON. Do not use square brackets.
 
 Example of correct perspective (names here are placeholders): "${L.summaryExample(userName)}"`;
     }
