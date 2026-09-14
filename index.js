@@ -291,19 +291,8 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
             if (state.active !== undefined) defaultFolder.active = state.active;
 
             if (Array.isArray(state.npcsData)) {
-                // Новый формат: папка Default редактируется целиком. Для НЕотредактированных
-                // дефолтных NPC (имя/био/стиль всё ещё совпадают с одним из вариантов сида)
-                // подставляем контент под ТЕКУЩИЙ язык ролевой — иначе NPC навсегда останутся
-                // на том языке, что был при первом сохранении. Ручные правки юзера не трогаем.
-                const seedById = new Map(DEFAULT_NPCS_SEED.map(s => [s.id, s]));
-                defaultFolder.npcs = state.npcsData.map(npc => {
-                    const seed = seedById.get(npc.id);
-                    if (!seed) return npc;
-                    const matchesRu = npc.name === seed.ru.name && npc.desc === seed.ru.desc && npc.style === seed.ru.style;
-                    const matchesEn = npc.name === seed.en.name && npc.desc === seed.en.desc && npc.style === seed.en.style;
-                    if (!matchesRu && !matchesEn) return npc;
-                    return { ...npc, ...(NovaPrompts.rp().code === 'en' ? seed.en : seed.ru) };
-                });
+                // Новый формат: папка Default редактируется целиком
+                defaultFolder.npcs = syncDefaultNpcsLanguage(state.npcsData);
             } else if (state.npcs) {
                 // Старый формат: сохранялись только флаги активности
                 defaultFolder.npcs.forEach(npc => {
@@ -8302,7 +8291,12 @@ sketch or construction lines.`,
             const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();
             if (!extensionSettings.NOVA) extensionSettings.NOVA = {};
             extensionSettings.NOVA.rp_language = $(this).val();
-            saveSettingsDebounced();
+            defaultFolder.npcs = syncDefaultNpcsLanguage(defaultFolder.npcs);
+            saveFolders();
+            renderProfilesTab();
+            if (currentOpenFolderId === 'default' && $('#nova-view-folder-overlay').hasClass('active')) {
+                openFolderOverlay(defaultFolder);
+            }
             toastr.success(t("Язык ролевой:") + " " + $(this).find('option:selected').text());
         });
 
@@ -9791,6 +9785,22 @@ sketch or construction lines.`,
     function buildDefaultNpc(seed) {
         const lang = NovaPrompts.rp().code === 'en' ? seed.en : seed.ru;
         return { id: seed.id, handle: seed.handle, avatar: seed.avatar, color: seed.color, active: seed.active, ...lang };
+    }
+
+    /**
+     * Переводит НЕотредактированных дефолтных NPC (имя/био/стиль совпадают с одним из
+     * вариантов сида) на текущий язык ролевой. Ручные правки юзера не трогаем.
+     */
+    function syncDefaultNpcsLanguage(npcs) {
+        const seedById = new Map(DEFAULT_NPCS_SEED.map(s => [s.id, s]));
+        const target = NovaPrompts.rp().code === 'en' ? 'en' : 'ru';
+        return npcs.map(npc => {
+            const seed = seedById.get(npc.id);
+            if (!seed) return npc;
+            const matches = v => npc.name === v.name && npc.desc === v.desc && npc.style === v.style;
+            if (!matches(seed.ru) && !matches(seed.en)) return npc;
+            return { ...npc, ...seed[target] };
+        });
     }
 
     const defaultFolder = {
