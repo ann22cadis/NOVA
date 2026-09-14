@@ -126,7 +126,7 @@
                     <div style="font-size: 14px; color: var(--nova-text-muted); margin-bottom: 16px;">
                         Здесь показаны все невидимые блоки, внедрённые в текущий чат. Зелёные — пересказ от модели, голубые — дословная переписка. Их можно изменять, удалять и переходить к нужному сообщению.
                     </div>
-                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
+                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px; background: var(--nova-inset); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
                         <div style="font-weight: 700; font-size: 16px; border-bottom: 1px solid var(--nova-border); padding-bottom: 8px;">Синхронизация с чатом</div>
                         <div style="font-size: 14px; color: var(--nova-text-muted);">
                             Незаметно сохраняет события соцсети (посты и личные сообщения) в основной чат, чтобы персонажи не забывали о ваших действиях здесь.
@@ -155,7 +155,7 @@
                         </div>
                     </div>
 
-                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
+                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; background: var(--nova-inset); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
                         <div style="font-weight: 700; font-size: 16px; border-bottom: 1px solid var(--nova-border); padding-bottom: 8px;">Резервные копии ленты этого чата</div>
                         <div style="font-size: 14px; color: var(--nova-text-muted);">
                             Снимок сохраняется автоматически при каждом открытии этого чата, если лента с прошлого раза изменилась — до 5 штук. Если лента или переписка вдруг пропали, можно откатиться сюда.
@@ -205,6 +205,14 @@
                             <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
                                 Язык самой панели NOVA — вкладки, кнопки, подсказки. Не влияет на язык ролевой выше.
                             </span>
+                        </label>
+
+                        <label style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">Тема оформления</span>
+                            <select id="nova-theme" style="width: 100%; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 0 12px; border-radius: 8px; outline: none; height: 40px; box-sizing: border-box; font-size: 14px;">
+                                <option value="dark">Тёмная</option>
+                                <option value="light">Светлая</option>
+                            </select>
                         </label>
 
                         <label style="display: flex; flex-direction: column; gap: 8px;">
@@ -351,7 +359,7 @@
                     
                     <!-- Sync group moved to History tab -->
 
-                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
+                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 12px; background: var(--nova-inset); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
                         <div style="font-weight: 700; font-size: 16px; border-bottom: 1px solid var(--nova-border); padding-bottom: 8px;">Хранилище</div>
                         <div style="font-size: 14px; color: var(--nova-text-muted);">
                             Аватарки, загруженные до перехода на хранение файлом, а также их старые копии в ленте и переписке — переносит в файлы и убирает дубли, ничего не удаляя безвозвратно.
@@ -422,7 +430,7 @@
 
         <!-- Image Generation Settings Overlay -->
         <div id="nova-view-image-settings" class="nova-folder-overlay" style="background: var(--nova-bg); z-index: 115;">
-            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: rgba(21,32,43,0.85); backdrop-filter: blur(10px);">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: var(--nova-dm-header-bg); backdrop-filter: blur(10px);">
                 <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
                     <div class="nova-icon-btn" id="nova-image-settings-back-btn" title="Назад" style="background: transparent; flex-shrink: 0;">
                         <i class="fa-solid fa-arrow-left"></i>
@@ -480,7 +488,7 @@
                             <input type="checkbox" id="nova-image-use-sillyimages" style="accent-color: var(--nova-accent); width: 18px; height: 18px; flex-shrink: 0;">
                             <span style="color: var(--nova-text-muted); font-size: 14px;">Брать подключение из расширения sillyimages</span>
                         </label>
-                        <div id="nova-image-sillyimages-info" style="display: none; font-size: 13px; color: var(--nova-text-muted); background: rgba(0,0,0,0.2); border: 1px solid var(--nova-border); border-radius: 10px; padding: 10px; line-height: 1.5;"></div>
+                        <div id="nova-image-sillyimages-info" style="display: none; font-size: 13px; color: var(--nova-text-muted); background: var(--nova-inset); border: 1px solid var(--nova-border); border-radius: 10px; padding: 10px; line-height: 1.5;"></div>
 
                         <div id="nova-image-own-profile" style="display: flex; flex-direction: column; gap: 8px;">
                         <div style="display: flex; gap: 8px; align-items: stretch;">
@@ -645,7 +653,7 @@
 
         <!-- New DM Selection Overlay -->
         <div id="nova-view-new-dm-overlay" class="nova-folder-overlay" style="background: var(--nova-bg); z-index: 165;">
-            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: rgba(21,32,43,0.85); backdrop-filter: blur(10px); border-bottom: 1px solid var(--nova-border); display: flex; align-items: center; gap: 16px;">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: var(--nova-dm-header-bg); backdrop-filter: blur(10px); border-bottom: 1px solid var(--nova-border); display: flex; align-items: center; gap: 16px;">
                 <div class="nova-icon-btn" id="nova-new-dm-back-btn" style="background: transparent;">
                     <i class="fa-solid fa-arrow-left"></i>
                 </div>
@@ -809,7 +817,7 @@
 
         <!-- Public Profile Overlay View -->
         <div id="nova-view-public-profile" class="nova-folder-overlay" style="background: var(--nova-surface); z-index: 110;">
-            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: rgba(21,32,43,0.85); backdrop-filter: blur(10px);">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: var(--nova-dm-header-bg); backdrop-filter: blur(10px);">
                 <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
                     <div class="nova-icon-btn" id="nova-public-profile-back-btn" title="Назад" style="background: transparent;">
                         <i class="fa-solid fa-arrow-left"></i>
@@ -859,7 +867,7 @@
         </div>
         <!-- Single Post Overlay View -->
         <div id="nova-view-single-post" class="nova-folder-overlay" style="background: var(--nova-bg); display: flex; flex-direction: column;">
-            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: rgba(21,32,43,0.85); backdrop-filter: blur(10px); flex-shrink: 0;">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: var(--nova-dm-header-bg); backdrop-filter: blur(10px); flex-shrink: 0;">
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div class="nova-icon-btn" id="nova-single-post-back-btn" title="Назад" style="background: transparent;">
                         <i class="fa-solid fa-arrow-left"></i>

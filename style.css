@@ -8,6 +8,34 @@
     --nova-text: #ffffff;
     --nova-text-muted: #8899a6;
     --nova-font: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --nova-tint: rgba(255, 255, 255, 0.1);
+    --nova-tint-strong: rgba(255, 255, 255, 0.14);
+    --nova-inset: rgba(0, 0, 0, 0.2);
+    --nova-header-bg: rgba(0, 0, 0, 0.65);
+    --nova-dm-header-bg: rgba(21, 32, 43, 0.85);
+}
+
+/* Светлая тема: атрибут ставится на <html>, чтобы задевать и то, что NOVA
+   вешает прямо в <body> (кроппер, меню NPC), а не только #nova-backdrop */
+:root[data-nova-theme="light"] {
+    --nova-bg: #ffffff;
+    --nova-surface: #f7f9f9;
+    --nova-surface-hover: #eaeff1;
+    --nova-border: #cfd9de;
+    --nova-accent: #1d9bf0;
+    --nova-accent-hover: #1a8cd8;
+    --nova-text: #0f1419;
+    --nova-text-muted: #536471;
+    --nova-tint: rgba(15, 20, 25, 0.06);
+    --nova-tint-strong: rgba(15, 20, 25, 0.1);
+    --nova-inset: rgba(15, 20, 25, 0.04);
+    --nova-header-bg: rgba(255, 255, 255, 0.85);
+    --nova-dm-header-bg: rgba(247, 249, 249, 0.92);
+    color-scheme: light;
+}
+
+:root[data-nova-theme="light"] .nova-folder-external-toggle {
+    background: var(--nova-tint-strong);
 }
 
 #nova-backdrop {
@@ -81,7 +109,7 @@
        С€Р°РїРєР° РґРѕР»Р¶РЅР° РІС‹СЂР°СЃС‚Рё, Р° РЅРµ РѕР±СЂРµР·Р°С‚СЊ РєРѕРЅС‚РµРЅС‚ РїРѕ Р¶РёРІРѕРјСѓ */
     min-height: 53px;
     border-bottom: 1px solid var(--nova-border);
-    background: rgba(0, 0, 0, 0.65);
+    background: var(--nova-header-bg);
     backdrop-filter: blur(12px);
     position: sticky;
     top: 0;
@@ -157,7 +185,7 @@
     flex: 1;
     height: 4px;
     border-radius: 2px;
-    background: rgba(255, 255, 255, 0.12);
+    background: var(--nova-tint);
     position: relative;
     cursor: pointer;
     touch-action: none;
@@ -233,7 +261,7 @@
 }
 
 .nova-icon-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--nova-tint);
 }
 
 .nova-nav-btn.active {
@@ -475,7 +503,7 @@
     display: none;
     padding: 12px;
     border-top: 1px solid var(--nova-border);
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--nova-inset);
 }
 
 .nova-profile-card.expanded .nova-profile-body {
@@ -806,7 +834,7 @@ textarea.nova-autogrow {
 .nova-ref-card {
     display: flex;
     gap: 10px;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--nova-inset);
     border: 1px solid var(--nova-border);
     border-radius: 12px;
     padding: 10px;
@@ -845,7 +873,7 @@ textarea.nova-autogrow {
 /* Свёрнутая карточка референса: развёрнутый вид занимает ~180px, и десяток
    слотов превращал настройки в бесконечную простыню. Правка — по клику. */
 .nova-ref-item {
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--nova-inset);
     border: 1px solid var(--nova-border);
     border-radius: 12px;
     overflow: hidden;
@@ -950,7 +978,7 @@ textarea.nova-autogrow {
     align-items: center;
     gap: 10px;
     padding: 8px 10px;
-    background: rgba(0, 0, 0, 0.2);
+    background: var(--nova-inset);
     border: 1px solid var(--nova-border);
     border-radius: 12px;
     opacity: 0.75;
@@ -1064,7 +1092,7 @@ details.nova-settings-group {
 .nova-settings-summary::-webkit-details-marker { display: none; }
 .nova-settings-summary::marker { content: ''; }
 
-.nova-settings-summary:hover { background: rgba(255, 255, 255, 0.04); }
+.nova-settings-summary:hover { background: var(--nova-tint); }
 
 .nova-settings-chevron {
     font-size: 12px;
@@ -1566,7 +1594,7 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
    Переменные ставит applyDMThemeVars() на #nova-view-single-dm. */
 
 #nova-single-dm-header {
-    background: var(--nova-dm-surface, rgba(21, 32, 43, 0.85));
+    background: var(--nova-dm-surface, var(--nova-dm-header-bg));
     border-bottom: 1px solid var(--nova-dm-border, var(--nova-border));
 }
 
@@ -1887,7 +1915,7 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
 
 .nova-avatar-suggestion-view {
     width: 100%;
-    background: rgba(255, 255, 255, 0.08);
+    background: var(--nova-tint);
     border: none;
     color: var(--nova-accent);
     font-weight: 700;
@@ -1897,7 +1925,7 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
     cursor: pointer;
 }
 
-.nova-avatar-suggestion-view:hover { background: rgba(255, 255, 255, 0.14); }
+.nova-avatar-suggestion-view:hover { background: var(--nova-tint-strong); }
 
 /* в”Ђв”Ђ РњРµРЅСЋ В«РїР»СЋСЃВ» РІ DM в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ */
 .nova-dm-plus-menu {

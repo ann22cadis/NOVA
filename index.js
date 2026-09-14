@@ -7501,6 +7501,13 @@ sketch or construction lines.`,
         return ctx?.extensionSettings?.NOVA?.ui_language === 'en' ? 'en' : 'ru';
     }
 
+    /** Тема вешается на <html>, чтобы задевать и то, что NOVA кладёт прямо в <body>. */
+    function applyNovaTheme() {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        const theme = ctx?.extensionSettings?.NOVA?.theme === 'light' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-nova-theme', theme);
+    }
+
     /** Локаль для дат/чисел в самом интерфейсе — от языка панели, а не от языка ролевой. */
     function getUiLocale() {
         return getUiLanguage() === 'en' ? 'en-US' : 'ru-RU';
@@ -8078,6 +8085,9 @@ sketch or construction lines.`,
         'Сохранить изменения': 'Save changes',
         'Удалить из памяти': 'Remove from memory',
         'из sillyimages': 'from sillyimages',
+        'Тема оформления': 'Theme',
+        'Тёмная': 'Dark',
+        'Светлая': 'Light',
         'Отправить': 'Send',
         'Готово': 'Done',
         'Свернуть': 'Collapse',
@@ -8312,6 +8322,14 @@ sketch or construction lines.`,
             toastr.success(t('Язык интерфейса') + ': ' + $(this).find('option:selected').text());
         });
 
+        $('#nova-theme').on('change', function() {
+            const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();
+            if (!extensionSettings.NOVA) extensionSettings.NOVA = {};
+            extensionSettings.NOVA.theme = $(this).val() === 'light' ? 'light' : 'dark';
+            saveSettingsDebounced();
+            applyNovaTheme();
+        });
+
         $('#nova-refresh-proxy-btn').on('click', (e) => {
             e.preventDefault();
             refreshConnectionProfiles();
@@ -8441,6 +8459,7 @@ sketch or construction lines.`,
             extensionSettings.NOVA.include_author_note = $('#nova-include-author-note').is(':checked');
             extensionSettings.NOVA.rp_language = $('#nova-rp-language').val() || 'ru';
             extensionSettings.NOVA.ui_language = $('#nova-ui-language').val() || 'ru';
+            extensionSettings.NOVA.theme = $('#nova-theme').val() === 'light' ? 'light' : 'dark';
 
             saveSettingsDebounced();
             toastr.success(t("Настройки NOVA сохранены"));
@@ -9750,6 +9769,7 @@ sketch or construction lines.`,
         $('#nova-include-author-note').prop('checked', extensionSettings.NOVA.include_author_note !== false);
         $('#nova-rp-language').val(extensionSettings.NOVA.rp_language === 'en' ? 'en' : 'ru');
         $('#nova-ui-language').val(extensionSettings.NOVA.ui_language === 'en' ? 'en' : 'ru');
+        $('#nova-theme').val(extensionSettings.NOVA.theme === 'light' ? 'light' : 'dark');
 
         console.log(`[NOVA] Loaded ${profileNames.length} connection profiles.`);
     }
@@ -9905,7 +9925,7 @@ sketch or construction lines.`,
                 if (item.parentPost) {
                     const parent = item.parentPost;
                     parentHtml = `
-                        <div class="nova-post-parent" style="padding: 12px 16px; border-bottom: 1px solid var(--nova-border); background: rgba(0,0,0,0.15); margin-bottom: 0;">
+                        <div class="nova-post-parent" style="padding: 12px 16px; border-bottom: 1px solid var(--nova-border); background: var(--nova-inset); margin-bottom: 0;">
                             <div style="font-size: 12px; color: var(--nova-text-muted); margin-bottom: 6px;"><i class="fa-solid fa-reply"></i> ${t('В ответ на')} ${parent.handle}</div>
                             <div style="display: flex; gap: 12px;">
                                 ${parent.avatar ? `<img src="${parent.avatar}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">` : `<div style="width: 24px; height: 24px; border-radius: 50%; background-color: ${parent.color || '#333'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">${(parent.name || '?').charAt(0).toUpperCase()}</div>`}
@@ -11234,6 +11254,7 @@ sketch or construction lines.`,
         migrateLegacySettings();
         loadSettings();
         loadFolders();
+        applyNovaTheme();
 
         // Персона в Таверне сменилась — активная NOVA-персона (если не запиннена
         // руками) должна подхватиться сама, без переоткрытия панели
@@ -11433,7 +11454,7 @@ sketch or construction lines.`,
             };
 
             const renderReaction = r => `
-                <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--nova-text-muted); padding: 8px 10px; background: rgba(0,0,0,0.18); border-radius: 8px; line-height: 1.4;">
+                <div style="display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--nova-text-muted); padding: 8px 10px; background: var(--nova-inset); border-radius: 8px; line-height: 1.4;">
                     ${deltaChip(r.delta)}<span style="flex: 1; min-width: 0;">${escapeHtml(r.text)}</span>
                 </div>
             `;
@@ -11661,7 +11682,7 @@ sketch or construction lines.`,
                         <div style="font-size: 12px; color: var(--nova-text-muted); margin-bottom: 6px;">
                             <span style="color: ${kind.color}; font-weight: 700;">${kind.title}</span> ${t('· сообщение #')}${index}${t(', блок')} ${subIndex + 1}
                         </div>
-                        <textarea class="nova-history-textarea" data-index="${index}" data-subindex="${subIndex}" style="box-sizing: border-box; width: 100%; min-height: 60px; background: rgba(0,0,0,0.2); border: 1px solid var(--nova-border); border-radius: 8px; color: var(--nova-text); padding: 8px; font-family: inherit; resize: vertical;">${summaryText}</textarea>
+                        <textarea class="nova-history-textarea" data-index="${index}" data-subindex="${subIndex}" style="box-sizing: border-box; width: 100%; min-height: 60px; background: var(--nova-inset); border: 1px solid var(--nova-border); border-radius: 8px; color: var(--nova-text); padding: 8px; font-family: inherit; resize: vertical;">${summaryText}</textarea>
                         
                         <div style="display: flex; gap: 8px; margin-top: 8px; justify-content: flex-end;">
                             <button class="nova-history-jump-btn" data-index="${index}" style="background: var(--nova-surface); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 6px 12px; border-radius: 8px; cursor: pointer;" title="${t('Перейти к сообщению')}"><i class="fa-solid fa-crosshairs"></i></button>
