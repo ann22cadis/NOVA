@@ -7465,12 +7465,328 @@ sketch or construction lines.`,
         console.log("[NOVA] Options button injected.");
     }
 
+    // ─── Язык интерфейса (RU/EN) ──────────────────────────────────────────────
+    //
+    // Отдельная настройка от «Языка ролевой» (NovaPrompts.rp_language): та решает,
+    // на каком языке пишут персонажи, эта — на каком языке сам интерфейс NOVA.
+    //
+    // Статическая разметка panel.html не редактируется под каждый язык — вместо
+    // этого t()/applyUiLanguageToStaticPanel() переводят её на лету по словарю,
+    // ключом которого служит сам русский текст (нормализованный по пробелам, а
+    // не как он записан в HTML — там сентенции часто разбиты на несколько строк
+    // отступами, а браузер всё равно схлопывает эти пробелы при отрисовке).
+    // Динамические строки (тосты, карточки, собираемые в JS) оборачиваются в t()
+    // прямо в месте использования.
+
+    function getUiLanguage() {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        return ctx?.extensionSettings?.NOVA?.ui_language === 'en' ? 'en' : 'ru';
+    }
+
+    /** Локаль для дат/чисел в самом интерфейсе — от языка панели, а не от языка ролевой. */
+    function getUiLocale() {
+        return getUiLanguage() === 'en' ? 'en-US' : 'ru-RU';
+    }
+
+    function normalizeWs(s) {
+        return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
+    }
+
+    /** RU (нормализованный) -> EN. Ключ отсутствует — строка остаётся русской. */
+    const NOVA_UI_DICT = {
+        // Навигация шапки
+        'Главная': 'Home',
+        'Персонажи': 'Characters',
+        'Сообщения': 'Messages',
+        'Галерея': 'Gallery',
+        'Отношения': 'Relationships',
+        'Память': 'Memory',
+        'Настройки': 'Settings',
+        'Закрыть': 'Close',
+        // Плашка «сейчас играет»
+        'Предыдущий': 'Previous',
+        'Пауза/Play': 'Pause/Play',
+        'Следующий': 'Next',
+        'Скрыть и поставить на паузу': 'Hide and pause',
+        // Лента
+        'Отмена': 'Cancel',
+        'Удалить (0)': 'Delete (0)',
+        'Удалить посты': 'Delete posts',
+        'Лента ожидает постов...': 'The feed is waiting for posts...',
+        // Персонажи/NPC
+        'Мои персоны': 'My personas',
+        'Создать персону': 'Create persona',
+        'Удалить персону': 'Delete persona',
+        'Персонажи чата': 'Chat characters',
+        'Загрузка персонажей...': 'Loading characters...',
+        'Архив папок из других чатов': 'Archive of folders from other chats',
+        'Архив': 'Archive',
+        'Создать НПС': 'Create NPC',
+        'Создать папку': 'Create folder',
+        'Сгенерировать NPC': 'Generate NPC',
+        'Сгенерировать': 'Generate',
+        // Память (История)
+        'Память ИИ (Журнал контекста)': 'AI Memory (Context Log)',
+        'Здесь показаны все невидимые блоки, внедрённые в текущий чат. Зелёные — пересказ от модели, голубые — дословная переписка. Их можно изменять, удалять и переходить к нужному сообщению.':
+            'Shown here are all the invisible blocks injected into the current chat. Green — a model summary, blue — a verbatim transcript. They can be edited, deleted, and jumped to.',
+        'Синхронизация с чатом': 'Sync with chat',
+        'Незаметно сохраняет события соцсети (посты и личные сообщения) в основной чат, чтобы персонажи не забывали о ваших действиях здесь. К обоим способам прикладывается расшифровка ников — кто из них какой персонаж и кто из них вы.':
+            'Quietly saves social feed events (posts and private messages) into the main chat, so characters don’t forget what you did here. Both methods attach a handle legend — which account is which character, and which one is you.',
+        'Размер пересказа': 'Summary size',
+        'Краткий (1-2 предложения)': 'Short (1-2 sentences)',
+        'Средний (3-4 предложения)': 'Medium (3-4 sentences)',
+        'Подробный (с цитатами из личек)': 'Detailed (with DM quotes)',
+        'Пересказать в чат': 'Summarize into chat',
+        'Вставить перепиской': 'Insert as transcript',
+        '«Пересказать» — модель сжимает события в выжимку, тратит генерацию. «Перепиской» — посты и реплики уходят в чат дословно, без обращения к модели и без потери деталей.':
+            '"Summarize" — the model compresses events into a digest; costs a generation. "As transcript" — posts and replies go into the chat verbatim, no model call, no lost detail.',
+        'Резервные копии ленты этого чата': 'Feed backups for this chat',
+        'Снимок сохраняется автоматически при каждом открытии этого чата, если лента с прошлого раза изменилась — до 5 штук. Если лента или переписка вдруг пропали, можно откатиться сюда.':
+            'A snapshot is saved automatically every time this chat opens, if the feed changed since last time — up to 5 of them. If the feed or a DM ever disappears, you can roll back here.',
+        'Пока нет резервных копий для этого чата.': 'No backups for this chat yet.',
+        'Восстановить': 'Restore',
+        'постов': 'posts',
+        'переписок': 'threads',
+        'Восстановить снимок от': 'Restore the snapshot from',
+        'Текущее состояние ленты и переписки в этом чате будет заменено.': 'The current feed and DMs in this chat will be replaced.',
+        'Лента восстановлена из резервной копии': 'Feed restored from backup',
+        // Настройки
+        'Настройки генерации': 'Generation settings',
+        'Профиль соединения API': 'API connection profile',
+        'Обновить профили': 'Refresh profiles',
+        'Язык ролевой': 'Roleplay language',
+        'Русский': 'Russian',
+        'На каком языке персонажи пишут посты и сообщения, и на каком события уходят в чат. Уже написанное не переводится.':
+            'The language characters write posts and messages in, and the language events are inserted into the chat in. Already-written text is not translated.',
+        'Язык интерфейса': 'Interface language',
+        'Язык самой панели NOVA — вкладки, кнопки, подсказки. Не влияет на язык ролевой выше.':
+            'The language of the NOVA panel itself — tabs, buttons, hints. Does not affect the roleplay language above.',
+        'Глубина контекста (сообщений):': 'Context depth (messages):',
+        'Лимит токенов генерации:': 'Generation token limit:',
+        'Память ленты (постов в промпт):': 'Feed memory (posts in prompt):',
+        'Память переписки (сообщений в промпт):': 'DM memory (messages in prompt):',
+        'Сколько прошлого уходит модели в запрос. Чем больше — тем лучше она помнит, но тем толще промпт: если ловите 429 или обрывы ответа на длинных переписках, уменьшите. 0 — без ограничения.':
+            'How much past context goes into the request. More means better memory but a bigger prompt: if you get 429s or cut-off replies on long threads, lower it. 0 = no limit.',
+        'Рассуждения (Thinking)': 'Reasoning (Thinking)',
+        'Уровень рассуждений:': 'Reasoning level:',
+        'Не вмешиваться (как в Таверне)': "Don't interfere (as in Tavern)",
+        'Отключены': 'Disabled',
+        'Авто': 'Auto',
+        'Минимальные': 'Minimal',
+        'Поверхностные': 'Light',
+        'Обычные': 'Normal',
+        'Подробные': 'Detailed',
+        'Максимальные': 'Maximum',
+        '«Не вмешиваться» — NOVA не трогает рассуждения вообще, решают пресет профиля и настройки Таверны.':
+            '"Don’t interfere" — NOVA leaves reasoning alone entirely; the connection profile’s preset and Tavern’s own settings decide.',
+        'Начинать ответ с:': 'Start reply with:',
+        'берётся из Таверны': 'taken from Tavern',
+        'Ответ преднаполняется этим текстом, и модель вынуждена начать с размышлений, а не сразу с JSON. Блок вырезается перед разбором JSON, в ленту не попадает.':
+            'The reply is prefilled with this text, forcing the model to start with reasoning instead of jumping straight to JSON. The block is cut out before the JSON is parsed — it never reaches the feed.',
+        'Пусто — подхватывается значение из Таверны (Форматирование → Разное).': 'Empty — picks up the value from Tavern (Formatting → Miscellaneous).',
+        'Авто-парсинг рассуждений': 'Auto-parse reasoning',
+        'Вырезать блок между префиксом и суффиксом до разбора JSON. Оба поля должны быть заполнены. Выключишь — размышления уедут в парсер и сломают ленту.':
+            'Cut out the block between the prefix and suffix before parsing JSON. Both fields must be filled in. Turn this off and reasoning text leaks into the parser and breaks the feed.',
+        'Префикс': 'Prefix',
+        'Суффикс': 'Suffix',
+        'Промпт думалки (по пунктам)': 'Thinking prompt (itemized)',
+        'Что именно обдумать внутри блока. Работает только вместе с полем «Начинать ответ с» — без него модели нечего закрывать.':
+            'What exactly to think through inside the block. Only works together with "Start reply with" — without it, the model has nothing to close.',
+        'Инструкция про размышления в промпте': 'Reasoning instruction in the prompt',
+        'Например: думай мало, экономь токены': 'e.g.: think little, save tokens',
+        'Дописывается в конец каждого промпта NOVA.': 'Appended to the end of every NOVA prompt.',
+        'Отправлять карту персонажа': 'Send character card',
+        'Отправлять персону пользователя': 'Send user persona',
+        'Отправлять World Info (книги)': 'Send World Info (lorebooks)',
+        'Отправлять авторские заметки': "Send author's notes",
+        'Заметка чата и заметка, привязанная к персонажу.': "The chat note and the note attached to the character.",
+        'Хранилище': 'Storage',
+        'Аватарки, загруженные до перехода на хранение файлом, а также их старые копии в ленте и переписке — переносит в файлы и убирает дубли, ничего не удаляя безвозвратно.':
+            'Avatars uploaded before the switch to file-based storage, plus their stale copies in the feed and DMs — moves them into files and removes duplicates, without permanently deleting anything.',
+        'Проверить и сжать': 'Check and compact',
+        'Сохранить настройки': 'Save settings',
+        // ЛС (заглушка)
+        'Здесь будут личные сообщения...': 'Private messages will appear here...',
+        // Галерея
+        'Скрыть фото, присланные юзером': 'Hide photos sent by the user',
+        'Все': 'All',
+        'Настройки генерации изображений': 'Image generation settings',
+        // Отношения
+        'Кого отслеживать': 'Who to track',
+        'Отмеченные герои сами решают, как меняется симпатия — по ходу ленты и переписки, без вашего участия.':
+            'Checked characters decide for themselves how affinity shifts — through the feed and DMs, without your input.',
+        // Генерация изображений (оверлей)
+        'Назад': 'Back',
+        'Генерация изображений': 'Image generation',
+        'Персонажи могут прикладывать фото': 'Characters can attach photos',
+        'Модель сама решает, когда персонажу есть что показать, и описывает кадр. Картинка рисуется отдельным запросом к выбранному ниже профилю.':
+            'The model decides on its own when a character has something to show, and describes the shot. The image is rendered as a separate request to the profile chosen below.',
+        'Всё на этом экране сохраняется сразу, отдельная кнопка «Сохранить» не нужна.': 'Everything on this screen saves immediately — no separate "Save" button needed.',
+        'Прикрепить изображение': 'Attach image',
+        'Выбрать ответы для удаления': 'Select replies to delete',
+        'Максимум фото за генерацию:': 'Max photos per generation:',
+        'Потолок на одну генерацию ленты или ответа в личке.': 'The cap for one feed generation or one DM reply.',
+        'Кому можно слать фото': 'Who can send photos',
+        'Всем': 'Everyone',
+        'Никому': 'No one',
+        'Новые персонажи и NPC умеют слать фото сразу. Снимите галочку, чтобы случайный NPC не расходовал лимит вместо тех, кто важен в сцене.':
+            'New characters and NPCs can send photos right away. Uncheck this so a random NPC doesn’t spend the budget instead of whoever actually matters in the scene.',
+        'Профиль подключения': 'Connection profile',
+        'Брать подключение из расширения sillyimages': 'Use the connection from the sillyimages extension',
+        'Создать профиль': 'Create profile',
+        'Удалить профиль': 'Delete profile',
+        'Настройки профиля': 'Profile settings',
+        'Название': 'Name',
+        'Например: nano-banana': 'e.g.: nano-banana',
+        'Тип API': 'API type',
+        'URL эндпоинта': 'Endpoint URL',
+        'API-ключ': 'API key',
+        'Модель': 'Model',
+        'Подтянуть список моделей': 'Fetch model list',
+        'Соотношение сторон по умолчанию': 'Default aspect ratio',
+        'Берётся только когда модель не указала кадр в теге сама.': "Used only when the model didn't specify the frame in the tag itself.",
+        'Разрешение': 'Resolution',
+        'В отличие от соотношения сторон — принудительное: перебивает то, что попросила модель в теге. Это вопрос цены и качества, а не кадра, и решать его должны вы, а не модель.':
+            'Unlike aspect ratio, this one is forced — it overrides whatever the model asked for in the tag. It’s a matter of price and quality, not framing, and that’s your call, not the model’s.',
+        'Сохранить профиль': 'Save profile',
+        'Проверить': 'Check',
+        'Промпт и стиль': 'Prompt and style',
+        'Создать промпт': 'Create prompt',
+        'Удалить промпт': 'Delete prompt',
+        'Название промпта': 'Prompt name',
+        'Например: аниме': 'e.g.: anime',
+        'Правила заполнения тега': 'Tag-filling rules',
+        'Типы кадра, порядок описания, что обязательно упомянуть...': 'Shot types, description order, what must be mentioned...',
+        'Сохранить промпт': 'Save prompt',
+        'Стиль изображения': 'Image style',
+        'Создать стиль': 'Create style',
+        'Удалить стиль': 'Delete style',
+        'Загрузить превью': 'Upload preview',
+        'Сохранить стиль': 'Save style',
+        'Референсы внешности': 'Appearance references',
+        'Прикладывать референсы к запросу': 'Attach references to the request',
+        'Добавить референс': 'Add reference',
+        'Архив референсов': 'Reference archive',
+        'Эти референсы сохранены полностью, но в генерацию не уходят. Верните любой, когда снова понадобится.':
+            'These references are fully saved but not sent to generation. Bring any of them back whenever you need it again.',
+        // Модалка удаления
+        'Удаление постов': 'Deleting posts',
+        'Последнюю генерацию': 'Last generation',
+        'Выбрать вручную': 'Select manually',
+        // Плавающие кнопки
+        'Обновить ленту': 'Refresh feed',
+        'Создать пост': 'Create post',
+        // Новое сообщение
+        'Новое сообщение': 'New message',
+        'Создать группу': 'Create group',
+        'Выбрать аватар группы': 'Choose group avatar',
+        'Название группы...': 'Group name...',
+        'Создать': 'Create',
+        // Личный тред
+        'Прикрепить': 'Attach',
+        'Фото': 'Photo',
+        'Перевод': 'Transfer',
+        'Предложить аватар': 'Suggest avatar',
+        'Обои чата': 'Chat wallpaper',
+        'Тема чата': 'Chat theme',
+        'Написать сообщение...': 'Write a message...',
+        'Вставить эту переписку в чат дословно': 'Insert this chat verbatim into the roleplay chat',
+        'Выбрать сообщения для удаления': 'Select messages to delete',
+        'Убрать изображение': 'Remove image',
+        'Удалить выбранные': 'Delete selected',
+        // Папка NPC
+        'Переименовать папку': 'Rename folder',
+        'Создать NPC в этой папке': 'Create NPC in this folder',
+        'Выбрать несколько': 'Select multiple',
+        'Включить/Отключить папку в ленте': 'Enable/disable this folder in the feed',
+        'Выбрано: 0': 'Selected: 0',
+        'Переместить выбранных': 'Move selected',
+        'Копировать выбранных': 'Copy selected',
+        'Удалить выбранных': 'Delete selected',
+        'Вернуть стандартных NPC': 'Restore default NPCs',
+        // Новый пост
+        'Опубликовать': 'Post',
+        'Что у вас на уме?': "What's on your mind?",
+        'Изображение': 'Image',
+        // Публичный профиль
+        'Имя': 'Name',
+        '0 постов': '0 posts',
+        'Читать': 'Following',
+        'Описание профиля...': 'Profile bio...',
+        'Посты': 'Posts',
+        'Ответы': 'Replies',
+        // Тред поста
+        'Тред': 'Thread',
+        'Написать ответ...': 'Write a reply...',
+        // Архив папок
+        'Архив (Другие чаты)': 'Archive (Other chats)',
+        // Создание NPC
+        'Шапка профиля': 'Profile banner',
+        'Загрузить шапку': 'Upload banner',
+        'Нажмите, чтобы загрузить': 'Click to upload',
+        'Убрать шапку': 'Remove banner',
+        'Загрузить аватар': 'Upload avatar',
+        'Аватарка НПС': 'NPC avatar',
+        'Цвет заглушки': 'Placeholder color',
+        'Цвет без аватарки': "Color when there's no avatar",
+        'Убрать аватарку': 'Remove avatar',
+        'Папка': 'Folder',
+        'Имя НПС': 'NPC name',
+        'Тэг (@)': 'Tag (@)',
+        'Описание (био)': 'Description (bio)',
+        'Кто это такой?': 'Who is this?',
+        'Стиль постов': 'Posting style',
+        'Например: агрессивный, много смайлов': 'e.g.: aggressive, lots of emojis',
+        'Активен в ленте': 'Active in the feed',
+        'Удалить NPC': 'Delete NPC',
+    };
+
+    /** Перевод одной строки — для JS-строк, собираемых динамически. RU остаётся RU, если словарь молчит. */
+    function t(ru) {
+        if (getUiLanguage() !== 'en') return ru;
+        return NOVA_UI_DICT[normalizeWs(ru)] || ru;
+    }
+
+    /**
+     * Переводит статическую разметку panel.html на лету — без правок самого файла.
+     * Оригинал (по нормализованным пробелам) кэшируется на самом узле при первом
+     * проходе, поэтому повторный вызов (смена языка обратно на русский) всегда
+     * восстанавливает точный исходный текст, а не переводит уже переведённое.
+     */
+    const novaUiOriginals = new WeakMap();
+    function applyUiLanguageToStaticPanel() {
+        const root = document.getElementById('nova-backdrop');
+        if (!root) return;
+        const lang = getUiLanguage();
+
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            const raw = node.nodeValue;
+            if (!raw || !raw.trim()) continue;
+            if (!novaUiOriginals.has(node)) novaUiOriginals.set(node, normalizeWs(raw));
+            const original = novaUiOriginals.get(node);
+            node.nodeValue = lang === 'en' ? (NOVA_UI_DICT[original] || original) : original;
+        }
+
+        ['title', 'placeholder'].forEach(attr => {
+            root.querySelectorAll(`[${attr}]`).forEach(el => {
+                const cacheKey = 'novaUi_' + attr;
+                const $el = $(el);
+                if ($el.data(cacheKey) === undefined) $el.data(cacheKey, normalizeWs(el.getAttribute(attr)));
+                const original = $el.data(cacheKey);
+                el.setAttribute(attr, lang === 'en' ? (NOVA_UI_DICT[original] || original) : original);
+            });
+        });
+    }
+
     async function openNovaPanel() {
         if ($('#nova-backdrop').length === 0) {
             const { renderExtensionTemplateAsync } = SillyTavern.getContext();
             try {
                 const html = await renderExtensionTemplateAsync(TEMPLATES_PATH, 'panel');
                 $('body').append(html);
+                applyUiLanguageToStaticPanel();
                 bindPanelEvents();
                 bindImageSettingsEvents();
                 bindReferenceEvents();
@@ -7628,6 +7944,17 @@ sketch or construction lines.`,
             toastr.success("Язык ролевой: " + $(this).find('option:selected').text());
         });
 
+        // Тот же принцип: сохраняем сразу, и applyUiLanguageToStaticPanel() тут же
+        // перекрашивает всю уже открытую панель, а не только то, что перерисуется позже
+        $('#nova-ui-language').on('change', function() {
+            const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();
+            if (!extensionSettings.NOVA) extensionSettings.NOVA = {};
+            extensionSettings.NOVA.ui_language = $(this).val();
+            saveSettingsDebounced();
+            applyUiLanguageToStaticPanel();
+            toastr.success(t('Язык интерфейса') + ': ' + $(this).find('option:selected').text());
+        });
+
         $('#nova-refresh-proxy-btn').on('click', (e) => {
             e.preventDefault();
             refreshConnectionProfiles();
@@ -7756,6 +8083,7 @@ sketch or construction lines.`,
             extensionSettings.NOVA.include_lorebooks = $('#nova-include-world-info').is(':checked');
             extensionSettings.NOVA.include_author_note = $('#nova-include-author-note').is(':checked');
             extensionSettings.NOVA.rp_language = $('#nova-rp-language').val() || 'ru';
+            extensionSettings.NOVA.ui_language = $('#nova-ui-language').val() || 'ru';
 
             saveSettingsDebounced();
             toastr.success("Настройки NOVA сохранены");
@@ -9064,6 +9392,7 @@ sketch or construction lines.`,
         }
         $('#nova-include-author-note').prop('checked', extensionSettings.NOVA.include_author_note !== false);
         $('#nova-rp-language').val(extensionSettings.NOVA.rp_language === 'en' ? 'en' : 'ru');
+        $('#nova-ui-language').val(extensionSettings.NOVA.ui_language === 'en' ? 'en' : 'ru');
 
         console.log(`[NOVA] Loaded ${profileNames.length} connection profiles.`);
     }
@@ -10871,16 +11200,17 @@ sketch or construction lines.`,
         const chatId = getCurrentChatId();
         const backups = ctx?.extensionSettings?.NOVA?.chatFeedBackups?.[chatId] || [];
         if (!backups.length) {
-            $list.append('<div style="color: var(--nova-text-muted); font-size: 13px;">Пока нет резервных копий для этого чата.</div>');
+            $list.append(`<div style="color: var(--nova-text-muted); font-size: 13px;">${t('Пока нет резервных копий для этого чата.')}</div>`);
             return;
         }
         // Новые сверху — так актуальные варианты восстановления видно без прокрутки
+        const locale = getUiLocale();
         backups.forEach((b, idx) => {
-            const date = new Date(b.time).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+            const date = new Date(b.time).toLocaleString(locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
             const $row = $(`
                 <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; background: var(--nova-surface-hover); border-radius:8px; font-size:13px;">
-                    <span>${date} — ${b.postsCount} постов, ${b.threadsCount} переписок</span>
-                    <button class="nova-feed-backup-restore-btn" style="background: var(--nova-accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; flex-shrink:0;">Восстановить</button>
+                    <span>${date} — ${b.postsCount} ${t('постов')}, ${b.threadsCount} ${t('переписок')}</span>
+                    <button class="nova-feed-backup-restore-btn" style="background: var(--nova-accent); color:white; border:none; padding:6px 10px; border-radius:6px; cursor:pointer; font-size:12px; flex-shrink:0;">${t('Восстановить')}</button>
                 </div>`);
             $row.find('.nova-feed-backup-restore-btn').on('click', () => restoreFeedBackup(chatId, idx));
             $list.prepend($row);
@@ -10892,8 +11222,9 @@ sketch or construction lines.`,
         const backups = ctx?.extensionSettings?.NOVA?.chatFeedBackups?.[chatId] || [];
         const backup = backups[idx];
         if (!backup) return;
-        const date = new Date(backup.time).toLocaleString('ru-RU');
-        novaConfirm(`Восстановить снимок от ${date} (${backup.postsCount} постов, ${backup.threadsCount} переписок)? Текущее состояние ленты и переписки в этом чате будет заменено.`, () => {
+        const date = new Date(backup.time).toLocaleString(getUiLocale());
+        const msg = `${t('Восстановить снимок от')} ${date} (${backup.postsCount} ${t('постов')}, ${backup.threadsCount} ${t('переписок')})? ${t('Текущее состояние ленты и переписки в этом чате будет заменено.')}`;
+        novaConfirm(msg, () => {
             if (!ctx.extensionSettings.NOVA.chatFeeds) ctx.extensionSettings.NOVA.chatFeeds = {};
             ctx.extensionSettings.NOVA.chatFeeds[chatId] = structuredClone(backup.data);
             ctx.saveSettingsDebounced();
@@ -10902,8 +11233,8 @@ sketch or construction lines.`,
                 renderFeed();
                 renderDMs();
             }
-            toastr.success('Лента восстановлена из резервной копии');
-        }, 'Восстановить', 'var(--nova-accent)');
+            toastr.success(t('Лента восстановлена из резервной копии'));
+        }, t('Восстановить'), 'var(--nova-accent)');
     }
 
     function renderHistoryTab() {

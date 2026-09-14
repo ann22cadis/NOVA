@@ -197,6 +197,17 @@
                         </label>
 
                         <label style="display: flex; flex-direction: column; gap: 8px;">
+                            <span style="color: var(--nova-text-muted); font-size: 14px;">Язык интерфейса</span>
+                            <select id="nova-ui-language" style="width: 100%; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 0 12px; border-radius: 8px; outline: none; height: 40px; box-sizing: border-box; font-size: 14px;">
+                                <option value="ru">Русский</option>
+                                <option value="en">English</option>
+                            </select>
+                            <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                                Язык самой панели NOVA — вкладки, кнопки, подсказки. Не влияет на язык ролевой выше.
+                            </span>
+                        </label>
+
+                        <label style="display: flex; flex-direction: column; gap: 8px;">
                             <span style="color: var(--nova-text-muted); font-size: 14px;">
                                 Глубина контекста (сообщений): <span id="nova-context-size-val" style="color: var(--nova-accent); font-weight: bold;">50</span>
                             </span>
