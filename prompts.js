@@ -628,7 +628,9 @@ OUTPUT FORMAT:
             : '';
 
         return `You are generating a private message (DM) reply for a fictional social network simulation.
-Act as the character described below and reply to the user in the DM thread.${hasUserImage ? `
+Act as the character described below and reply to the user in the DM thread.
+
+CRITICAL: write your reply in ${L.NAME}, REGARDLESS of what language the DM HISTORY, the character profile or the context below are written in. A long history in a different language is not permission to continue in that language — ${L.NAME} is not optional.${hasUserImage ? `
 
 THE USER JUST SENT YOU AN IMAGE — it is attached to this request and you can SEE it.
 Your reply MUST be a reaction to what is actually in that picture. Do not answer as if no image arrived.` : ''}
@@ -653,14 +655,15 @@ DM HISTORY:
 ${messageHistory}
 
 CRITICAL RULES:
-1. This is a CASUAL SOCIAL MEDIA DM (Direct Message), like Telegram, WhatsApp, or Twitter DMs.
-2. DO NOT roleplay actions (like *smiles* or *looks away*) unless it's formatted as casual text actions. DO NOT write inner thoughts.
-3. Keep it conversational, short, and natural. Use slang, typos, or emojis if it fits your character.
-4. You can write ONE or MULTIPLE messages at once, depending on how your character texts (e.g. some send one long text, others spam short texts).
-5. IMPORTANT: Pay attention to the CURRENT CONTEXT. Your character should react to recent roleplay events, bring them up, or ask the user (the person you're texting) about them. The user is a full participant in this story, not a passive reader.
-6. YOU HAVE YOUR OWN LIFE. The RP is not all you think about. Bring up your own day unprompted — work, chores, something you saw, something that annoyed you. Sometimes you are the one starting a topic, not just answering.
-7. DO NOT repeat what you already said earlier in this thread, and do not re-ask a question that was already answered. Read the history and move the conversation FORWARD.
-8. You are a person with a schedule: you can be busy, distracted, tired, or in the middle of something.${imageRule}
+1. Write in ${L.NAME}. This overrides the language of everything above — the DM history, the profile, the context. Do not drift into whatever language the history happens to be in.
+2. This is a CASUAL SOCIAL MEDIA DM (Direct Message), like Telegram, WhatsApp, or Twitter DMs.
+3. DO NOT roleplay actions (like *smiles* or *looks away*) unless it's formatted as casual text actions. DO NOT write inner thoughts.
+4. Keep it conversational, short, and natural. Use slang, typos, or emojis if it fits your character.
+5. You can write ONE or MULTIPLE messages at once, depending on how your character texts (e.g. some send one long text, others spam short texts).
+6. IMPORTANT: Pay attention to the CURRENT CONTEXT. Your character should react to recent roleplay events, bring them up, or ask the user (the person you're texting) about them. The user is a full participant in this story, not a passive reader.
+7. YOU HAVE YOUR OWN LIFE. The RP is not all you think about. Bring up your own day unprompted — work, chores, something you saw, something that annoyed you. Sometimes you are the one starting a topic, not just answering.
+8. DO NOT repeat what you already said earlier in this thread, and do not re-ask a question that was already answered. Read the history and move the conversation FORWARD.
+9. You are a person with a schedule: you can be busy, distracted, tired, or in the middle of something.${imageRule}
 
 Based on the history and the character's personality, write their NEXT response(s).
 
@@ -690,7 +693,9 @@ NO MARKDOWN, NO OTHER TEXT, JUST VALID JSON.${imageInstruction}`;
             : '';
 
         return `You are generating responses for a GROUP CHAT in a fictional social network simulation.
-The group is called "${groupName}".${imageNote}
+The group is called "${groupName}".
+
+CRITICAL: write in ${L.NAME}, REGARDLESS of what language the GROUP CHAT HISTORY, the participant profiles or the context below are written in. A long history in a different language is not permission to continue in that language — ${L.NAME} is not optional.${imageNote}
 
 PARTICIPANTS PROFILES:
 ${profilesInfo}
@@ -712,11 +717,12 @@ GROUP CHAT HISTORY:
 ${messageHistory}
 
 CRITICAL RULES:
-1. This is a CASUAL SOCIAL MEDIA GROUP CHAT (like a Telegram or WhatsApp group).
-2. DO NOT roleplay actions or inner thoughts. Write only the casual text messages they would send to the group.
-3. You can act as ONE OR MORE of the participants. Decide who would logically reply right now based on the conversation.
-4. If multiple characters are arguing or talking, you can return multiple messages from different characters in sequence.
-5. Provide the EXACT handle of the sender for each message.
+1. Write in ${L.NAME}. This overrides the language of everything above — the group history, the profiles, the context. Do not drift into whatever language the history happens to be in.
+2. This is a CASUAL SOCIAL MEDIA GROUP CHAT (like a Telegram or WhatsApp group).
+3. DO NOT roleplay actions or inner thoughts. Write only the casual text messages they would send to the group.
+4. You can act as ONE OR MORE of the participants. Decide who would logically reply right now based on the conversation.
+5. If multiple characters are arguing or talking, you can return multiple messages from different characters in sequence.
+6. Provide the EXACT handle of the sender for each message.
 
 Based on the history and personalities, write the next message(s) in the group chat.
 
