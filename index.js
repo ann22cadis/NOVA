@@ -49,12 +49,12 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
     // Валюты для переводов. Символ идёт в карточку, код — в промпт модели.
     // Юань пишем как 元, иначе он неотличим от иены: обе валюты используют ¥.
     const NOVA_CURRENCIES = [
-        { code: 'USD', symbol: '$', label: 'Доллар' },
-        { code: 'EUR', symbol: '€', label: 'Евро' },
-        { code: 'RUB', symbol: '₽', label: 'Рубль' },
-        { code: 'GBP', symbol: '£', label: 'Фунт' },
-        { code: 'CNY', symbol: '元', label: 'Юань' },
-        { code: 'JPY', symbol: '¥', label: 'Иена' },
+        { code: 'USD', symbol: '$', get label() { return t('Доллар'); } },
+        { code: 'EUR', symbol: '€', get label() { return t('Евро'); } },
+        { code: 'RUB', symbol: '₽', get label() { return t('Рубль'); } },
+        { code: 'GBP', symbol: '£', get label() { return t('Фунт'); } },
+        { code: 'CNY', symbol: '元', get label() { return t('Юань'); } },
+        { code: 'JPY', symbol: '¥', get label() { return t('Иена'); } },
     ];
     // Валюта, предвыбранная в диалоге перевода у пользователя. К персонажам отношения не имеет:
     // они берут валюту из сеттинга, и она приезжает в поле currency вместе с переводом.
@@ -127,32 +127,32 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
             );
             const recipientBlock = recipients.length > 1 ? `
                 <div style="margin-bottom: 14px;">
-                    <div style="color: var(--nova-text-muted); font-size: 13px; margin-bottom: 6px;">Кому</div>
+                    <div style="color: var(--nova-text-muted); font-size: 13px; margin-bottom: 6px;">${t('Кому')}</div>
                     ${buildCustomSelect('nova-transfer-to', recipients.map(r => ({ value: r.handle, label: r.name })), recipients[0]?.handle)}
                 </div>` : '';
 
             const html = `
                 <div id="nova-transfer-overlay" class="nova-folder-overlay active" style="z-index: 9999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,0.6);">
                     <div style="background: var(--nova-surface); border: 1px solid var(--nova-border); border-radius: 16px; padding: 24px; max-width: 340px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                        <div style="font-weight: bold; font-size: 18px; margin-bottom: 18px; color: var(--nova-text);">Перевод</div>
+                        <div style="font-weight: bold; font-size: 18px; margin-bottom: 18px; color: var(--nova-text);">${t('Перевод')}</div>
                         ${recipientBlock}
                         <div style="display: flex; gap: 10px; margin-bottom: 14px;">
                             <div style="flex: 2; min-width: 0;">
-                                <div style="color: var(--nova-text-muted); font-size: 13px; margin-bottom: 6px;">Сумма</div>
+                                <div style="color: var(--nova-text-muted); font-size: 13px; margin-bottom: 6px;">${t('Сумма')}</div>
                                 <input id="nova-transfer-amount" type="number" min="1" step="1" placeholder="0" class="nova-transfer-field">
                             </div>
                             <div style="flex: 1.4; min-width: 0;">
-                                <div style="color: var(--nova-text-muted); font-size: 13px; margin-bottom: 6px;">Валюта</div>
+                                <div style="color: var(--nova-text-muted); font-size: 13px; margin-bottom: 6px;">${t('Валюта')}</div>
                                 ${currencySelect}
                             </div>
                         </div>
                         <div style="margin-bottom: 20px;">
-                            <div style="color: var(--nova-text-muted); font-size: 13px; margin-bottom: 6px;">Комментарий</div>
-                            <input id="nova-transfer-note" type="text" placeholder="необязательно" class="nova-transfer-field">
+                            <div style="color: var(--nova-text-muted); font-size: 13px; margin-bottom: 6px;">${t('Комментарий')}</div>
+                            <input id="nova-transfer-note" type="text" placeholder="${t('необязательно')}" class="nova-transfer-field">
                         </div>
                         <div style="display: flex; gap: 12px;">
-                            <button id="nova-transfer-cancel" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">Отмена</button>
-                            <button id="nova-transfer-ok" style="flex: 1; background: var(--nova-accent); color: white; border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">Отправить</button>
+                            <button id="nova-transfer-cancel" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">${t('Отмена')}</button>
+                            <button id="nova-transfer-ok" style="flex: 1; background: var(--nova-accent); color: white; border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">${t('Отправить')}</button>
                         </div>
                     </div>
                 </div>
@@ -205,8 +205,8 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
                         <div style="font-weight: bold; font-size: 18px; margin-bottom: 16px; color: var(--nova-text);">${title}</div>
                         ${field}
                         <div style="display: flex; gap: 12px;">
-                            <button id="nova-prompt-cancel" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">Отмена</button>
-                            <button id="nova-prompt-ok" style="flex: 1; background: var(--nova-accent); color: white; border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">Готово</button>
+                            <button id="nova-prompt-cancel" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">${t('Отмена')}</button>
+                            <button id="nova-prompt-ok" style="flex: 1; background: var(--nova-accent); color: white; border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">${t('Готово')}</button>
                         </div>
                     </div>
                 </div>
@@ -227,14 +227,14 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         });
     }
 
-    function novaConfirm(message, onConfirm, okLabel = 'Удалить', okColor = '#f44336') {
+    function novaConfirm(message, onConfirm, okLabel = t('Удалить'), okColor = '#f44336') {
         const html = `
             <div id="nova-confirm-overlay" class="nova-folder-overlay active" style="z-index: 9999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,0.6);">
                 <div style="background: var(--nova-dm-card, var(--nova-surface)); border: 1px solid var(--nova-dm-border, var(--nova-border)); border-radius: 16px; padding: 24px; max-width: 320px; width: 100%; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-                    <div style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: var(--nova-dm-card-text, var(--nova-text));">Подтверждение</div>
+                    <div style="font-weight: bold; font-size: 18px; margin-bottom: 12px; color: var(--nova-dm-card-text, var(--nova-text));">${t('Подтверждение')}</div>
                     <div style="color: var(--nova-dm-card-text, var(--nova-text-muted)); opacity: 0.85; font-size: 15px; margin-bottom: 24px; line-height: 1.4;">${message}</div>
                     <div style="display: flex; justify-content: center; gap: 12px; margin-top: 10px;">
-                        <button id="nova-confirm-cancel" style="flex: 1; background: var(--nova-dm-other-bubble, var(--nova-surface-hover)); color: var(--nova-dm-card-text, var(--nova-text)); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold; transition: 0.2s;">Отмена</button>
+                        <button id="nova-confirm-cancel" style="flex: 1; background: var(--nova-dm-other-bubble, var(--nova-surface-hover)); color: var(--nova-dm-card-text, var(--nova-text)); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold; transition: 0.2s;">${t('Отмена')}</button>
                         <button id="nova-confirm-ok" style="flex: 1; background: ${okColor}; color: white; border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold; transition: 0.2s;">${escapeHtml(okLabel)}</button>
                     </div>
                 </div>
@@ -606,15 +606,15 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
     const CONTEXT_KINDS = {
         summary: {
             mark: MARK_SUMMARY,
-            title: 'Пересказ',            // как называется в интерфейсе
+            get title() { return t('Пересказ'); },            // как называется в интерфейсе
             color: '#4caf50',
-            markerText: 'Пересказано в чат',
+            get markerText() { return t('Пересказано в чат'); },
         },
         transcript: {
             mark: MARK_INSERT,
-            title: 'Переписка',
+            get title() { return t('Переписка'); },
             color: '#1da1f2',
-            markerText: 'Вставлено в чат',
+            get markerText() { return t('Вставлено в чат'); },
         },
     };
 
@@ -1818,11 +1818,11 @@ sketch or construction lines.`,
     // загруженная картинка всегда в приоритете.
     const NOVA_DM_THEMES = [
         {
-            id: 'default', name: 'Обычная', background: null, vars: null,
+            id: 'default', get name() { return t('Обычная'); }, background: null, vars: null,
             userBubble: null, otherBubble: null,
         },
         {
-            id: 'love', name: 'Романтика',
+            id: 'love', get name() { return t('Романтика'); },
             background: 'linear-gradient(160deg, #2a1520 0%, #3d1d2e 55%, #241019 100%)',
             userBubble: '#a8355f', otherBubble: '#3a2130',
             vars: {
@@ -1834,7 +1834,7 @@ sketch or construction lines.`,
             },
         },
         {
-            id: 'midnight', name: 'Полночь',
+            id: 'midnight', get name() { return t('Полночь'); },
             background: 'linear-gradient(160deg, #0f2027 0%, #203a43 55%, #16242b 100%)',
             userBubble: '#2f5d8a', otherBubble: '#1d2f38',
             vars: {
@@ -1846,7 +1846,7 @@ sketch or construction lines.`,
             },
         },
         {
-            id: 'forest', name: 'Лес',
+            id: 'forest', get name() { return t('Лес'); },
             background: 'linear-gradient(160deg, #282b22 0%, #1b1c18 60%, #131410 100%)',
             userBubble: '#59654a', otherBubble: '#1b1c18',
             vars: {
@@ -1858,7 +1858,7 @@ sketch or construction lines.`,
             },
         },
         {
-            id: 'sunset', name: 'Закат',
+            id: 'sunset', get name() { return t('Закат'); },
             background: 'linear-gradient(160deg, #2b1220 0%, #6b2f3d 55%, #94472f 100%)',
             userBubble: '#b04a5f', otherBubble: '#33202a',
             vars: {
@@ -1908,12 +1908,12 @@ sketch or construction lines.`,
     }
 
     const NOVA_RELATIONSHIP_BUCKETS = [
-        { min: 0, label: 'Враждебность', color: '#e0888f' },
-        { min: 20, label: 'Неприязнь', color: '#e0aa82' },
-        { min: 40, label: 'Нейтралитет', color: '#a3a8b5' },
-        { min: 60, label: 'Приятели', color: '#8ecf9e' },
-        { min: 80, label: 'Друзья', color: '#f0c675' },
-        { min: 95, label: 'Близкие друзья', color: '#e08ecf' },
+        { min: 0, get label() { return t('Враждебность'); }, color: '#e0888f' },
+        { min: 20, get label() { return t('Неприязнь'); }, color: '#e0aa82' },
+        { min: 40, get label() { return t('Нейтралитет'); }, color: '#a3a8b5' },
+        { min: 60, get label() { return t('Приятели'); }, color: '#8ecf9e' },
+        { min: 80, get label() { return t('Друзья'); }, color: '#f0c675' },
+        { min: 95, get label() { return t('Близкие друзья'); }, color: '#e08ecf' },
     ];
 
     function relationshipBucketForAffinity(affinity) {
@@ -2525,7 +2525,7 @@ sketch or construction lines.`,
             : 0;
         return `
             <div class="nova-music-card ${isNowPlaying ? 'playing' : ''}" data-tracks="${escapeHtml(JSON.stringify(tracks))}">
-                <div class="nova-music-play" title="Слушать через MoodTube">
+                <div class="nova-music-play" title="${t('Слушать через MoodTube')}">
                     <i class="fa-solid ${isNowPlaying ? 'fa-pause' : 'fa-play'}"></i>
                 </div>
                 <div class="nova-music-info">
@@ -2549,7 +2549,7 @@ sketch or construction lines.`,
                 <i class="fa-solid fa-record-vinyl"></i>
                 <div class="nova-playlist-tile-info">
                     <div class="nova-playlist-tile-name">${escapeHtml(share.playlistName)}</div>
-                    <div class="nova-playlist-tile-count">${share.tracks.length} ${share.tracks.length === 1 ? 'трек' : 'треков'}</div>
+                    <div class="nova-playlist-tile-count">${share.tracks.length} ${share.tracks.length === 1 ? t('трек') : t('треков')}</div>
                 </div>
             </div>
         `;
@@ -2580,7 +2580,7 @@ sketch or construction lines.`,
                         <i class="fa-solid fa-xmark nova-playlist-modal-close"></i>
                     </div>
                     <button class="nova-playlist-play-all" data-tracks="${escapeHtml(JSON.stringify(tracks))}">
-                        <i class="fa-solid fa-play"></i> Включить всё
+                        <i class="fa-solid fa-play"></i> ${t('Включить всё')}
                     </button>
                     <div class="nova-playlist-modal-list">${rows}</div>
                 </div>
@@ -2620,7 +2620,7 @@ sketch or construction lines.`,
             let tracks = [];
             try { tracks = JSON.parse($(this).attr('data-tracks') || '[]'); } catch {}
             if (!tracks.length) return;
-            openPlaylistModal($(this).attr('data-playlist-name') || 'Плейлист', tracks);
+            openPlaylistModal($(this).attr('data-playlist-name') || t('Плейлист'), tracks);
         });
         $(document).on('click', '.nova-playlist-modal-close', function() {
             $('#nova-playlist-modal-overlay').remove();
@@ -3991,15 +3991,15 @@ sketch or construction lines.`,
             // attachGeneratedImages), но без подписи это незаметно — все спиннеры
             // появляются разом и выглядят так, будто всё генерируется параллельно.
             const queueLabel = item.imageQueueTotal > 1
-                ? `<span>${item.imageQueueActive ? 'Генерируется' : 'В очереди'} ${item.imageQueuePos}/${item.imageQueueTotal}</span>`
+                ? `<span>${item.imageQueueActive ? t('Генерируется') : t('В очереди')} ${item.imageQueuePos}/${item.imageQueueTotal}</span>`
                 : '';
             return `<div class="nova-image-pending" style="${extraStyle}"><i class="fa-solid fa-spinner fa-spin"></i>${queueLabel}</div>`;
         }
         if (!item.image && item.imageFailed) {
-            return `<div class="nova-image-failed" style="${extraStyle}" title="Не удалось сгенерировать картинку">
+            return `<div class="nova-image-failed" style="${extraStyle}" title="${t('Не удалось сгенерировать картинку')}">
                 <i class="fa-solid fa-image-slash"></i>
-                <span>Не удалось сгенерировать</span>
-                <button type="button" class="nova-image-retry-btn" ${dataAttrs}><i class="fa-solid fa-rotate-right"></i> Повторить</button>
+                <span>${t('Не удалось сгенерировать')}</span>
+                <button type="button" class="nova-image-retry-btn" ${dataAttrs}><i class="fa-solid fa-rotate-right"></i> ${t('Повторить')}</button>
             </div>`;
         }
         if (!item.image) return '';
@@ -4020,7 +4020,7 @@ sketch or construction lines.`,
         if (!item.imageRegenerating) return imgTag;
         return `<div class="nova-attached-image-wrap" style="${extraStyle}">
             ${imgTag}
-            <div class="nova-image-regenerating-badge" title="Генерируется новая версия"><i class="fa-solid fa-spinner fa-spin"></i></div>
+            <div class="nova-image-regenerating-badge" title="${t('Генерируется новая версия')}"><i class="fa-solid fa-spinner fa-spin"></i></div>
         </div>`;
     }
 
@@ -4329,17 +4329,17 @@ sketch or construction lines.`,
                         <img src="${currentVersion.image}" alt="" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transition: transform 0.1s ease-out; transform-origin: center center; will-change: transform;">
                     </div>
 
-                    <div class="nova-icon-btn" id="nova-image-viewer-close" title="Закрыть" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.12); z-index: 20; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <div class="nova-icon-btn" id="nova-image-viewer-close" title="${t('Закрыть')}" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.12); z-index: 20; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                         <i class="fa-solid fa-xmark"></i>
                     </div>
 
                     <div class="nova-photo-edit-prompt-overlay" id="nova-image-viewer-edit-panel" style="position: fixed; width: min(92vw, 480px); box-sizing: border-box; background: rgba(30, 30, 30, 0.97); border: 1px solid var(--nova-border); border-radius: 14px; padding: 16px; display: none; flex-direction: column; gap: 12px; z-index: 20; pointer-events: auto; backdrop-filter: blur(10px); overflow-y: auto;">
                         <textarea id="nova-image-viewer-prompt-input" style="width: 100%; height: 160px; background: rgba(0,0,0,0.5); border: 1px solid var(--nova-border); border-radius: 8px; padding: 12px; color: white; font-family: inherit; font-size: 14px; line-height: 1.4; resize: vertical; box-sizing: border-box;"></textarea>
                         <div style="display: flex; gap: 10px; justify-content: space-between; align-items: center;">
-                            <button id="nova-image-viewer-copy-prompt" title="Копировать промпт" style="background: transparent; color: var(--nova-text-muted); border: 1px solid var(--nova-border); border-radius: 8px; width: 38px; height: 38px; flex: 0 0 auto; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i class="fa-regular fa-copy"></i></button>
+                            <button id="nova-image-viewer-copy-prompt" title="${t('Копировать промпт')}" style="background: transparent; color: var(--nova-text-muted); border: 1px solid var(--nova-border); border-radius: 8px; width: 38px; height: 38px; flex: 0 0 auto; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i class="fa-regular fa-copy"></i></button>
                             <div style="display: flex; gap: 10px;">
-                                <button id="nova-image-viewer-edit-cancel" style="background: transparent; color: white; border: none; padding: 8px 16px; cursor: pointer;">Отмена</button>
-                                <button id="nova-image-viewer-edit-confirm" style="background: var(--nova-accent); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; white-space: nowrap;">Сохранить</button>
+                                <button id="nova-image-viewer-edit-cancel" style="background: transparent; color: white; border: none; padding: 8px 16px; cursor: pointer;">${t('Отмена')}</button>
+                                <button id="nova-image-viewer-edit-confirm" style="background: var(--nova-accent); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; white-space: nowrap;">${t('Сохранить')}</button>
                             </div>
                         </div>
                     </div>
@@ -4350,35 +4350,35 @@ sketch or construction lines.`,
                          докрутив весь список заново, и без счётчика непонятно было даже сколько версий
                          вообще есть. Теперь — обе стороны и видно, где именно ты находишься. -->
                     <div class="nova-photo-viewer-versions" style="position: absolute; bottom: 96px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 14px; z-index: 10; pointer-events: none;">
-                        <div class="nova-icon-btn" id="nova-image-viewer-prev" title="Предыдущая версия" style="pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);">
+                        <div class="nova-icon-btn" id="nova-image-viewer-prev" title="${t('Предыдущая версия')}" style="pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);">
                             <i class="fa-solid fa-chevron-left"></i>
                         </div>
                         <div style="pointer-events: none; color: white; font-size: 13px; font-weight: 600; min-width: 46px; text-align: center; background: rgba(0,0,0,0.45); padding: 5px 10px; border-radius: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.6);">${item.imageVersionIndex + 1} / ${versionCount}</div>
-                        <div class="nova-icon-btn" id="nova-image-viewer-next" title="Следующая версия" style="pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);">
+                        <div class="nova-icon-btn" id="nova-image-viewer-next" title="${t('Следующая версия')}" style="pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);">
                             <i class="fa-solid fa-chevron-right"></i>
                         </div>
                     </div>` : ''}
 
                     ${showGalleryNav ? `
                     <div class="nova-photo-viewer-versions" style="position: absolute; bottom: 96px; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: 14px; z-index: 10; pointer-events: none;">
-                        <div class="nova-icon-btn" id="nova-image-viewer-gallery-prev" title="Предыдущее фото" style="pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);">
+                        <div class="nova-icon-btn" id="nova-image-viewer-gallery-prev" title="${t('Предыдущее фото')}" style="pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);">
                             <i class="fa-solid fa-chevron-left"></i>
                         </div>
                         <div style="pointer-events: none; color: white; font-size: 13px; font-weight: 600; min-width: 46px; text-align: center; background: rgba(0,0,0,0.45); padding: 5px 10px; border-radius: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.6);">${galleryNav.index + 1} / ${galleryNav.items.length}</div>
-                        <div class="nova-icon-btn" id="nova-image-viewer-gallery-next" title="Следующее фото" style="pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);">
+                        <div class="nova-icon-btn" id="nova-image-viewer-gallery-next" title="${t('Следующее фото')}" style="pointer-events: auto; width: 40px; height: 40px; border-radius: 50%; background: rgba(255,255,255,0.15); color: white; font-size: 15px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px);">
                             <i class="fa-solid fa-chevron-right"></i>
                         </div>
                     </div>` : ''}
 
                     <div class="nova-photo-viewer-actions" style="position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; padding-bottom: max(32px, calc(env(safe-area-inset-bottom, 0px) + 24px)); background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; justify-content: center; gap: 24px; z-index: 10; pointer-events: none;">
                         ${canRegenerate ? `
-                        <div class="nova-icon-btn" id="nova-image-viewer-regenerate" title="Перегенерировать (тот же промпт)" style="pointer-events: auto; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s, transform 0.1s;">
+                        <div class="nova-icon-btn" id="nova-image-viewer-regenerate" title="${t('Перегенерировать (тот же промпт)')}" style="pointer-events: auto; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s, transform 0.1s;">
                             <i class="fa-solid fa-sync-alt"></i>
                         </div>
-                        <div class="nova-icon-btn" id="nova-image-viewer-edit" title="Изменить промпт" style="pointer-events: auto; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s, transform 0.1s;">
+                        <div class="nova-icon-btn" id="nova-image-viewer-edit" title="${t('Изменить промпт')}" style="pointer-events: auto; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s, transform 0.1s;">
                             <i class="fa-solid fa-edit"></i>
                         </div>` : ''}
-                        <div class="nova-icon-btn" id="nova-image-viewer-download" title="Скачать в полном качестве" style="pointer-events: auto; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s, transform 0.1s;">
+                        <div class="nova-icon-btn" id="nova-image-viewer-download" title="${t('Скачать в полном качестве')}" style="pointer-events: auto; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s, transform 0.1s;">
                             <i class="fa-solid fa-download"></i>
                         </div>
                     </div>
@@ -4728,7 +4728,7 @@ sketch or construction lines.`,
         
         // Find @handle
         formatted = formatted.replace(/@([a-zA-Z0-9_]+)/g, (match, handle) => {
-            return `<span class="nova-clickable-handle" data-handle="${match}" style="color: var(--nova-accent); cursor: pointer;" title="Открыть профиль">${match}</span>`;
+            return `<span class="nova-clickable-handle" data-handle="${match}" style="color: var(--nova-accent); cursor: pointer;" title="${t('Открыть профиль')}">${match}</span>`;
         });
 
         return formatted;
@@ -4892,7 +4892,7 @@ sketch or construction lines.`,
         const nameKey = normHandle(rawName);
 
         if (handleKey === 'user') {
-            return profiles.find(ap => ap.isUser) || { name: 'Вы', handle: '@user', avatar: '', color: '#1da1f2' };
+            return profiles.find(ap => ap.isUser) || { name: t('Вы'), handle: '@user', avatar: '', color: '#1da1f2' };
         }
 
         let profile = null;
@@ -5075,7 +5075,7 @@ sketch or construction lines.`,
 
         if (feedSelectMode) {
             $('#nova-feed-cancel-select-btn').show();
-            $('#nova-feed-confirm-delete-btn').show().text(`Удалить (${selectedFeedPosts.size})`);
+            $('#nova-feed-confirm-delete-btn').show().text(`${t('Удалить')} (${selectedFeedPosts.size})`);
             $('#nova-feed-delete-btn').hide();
         } else {
             $('#nova-feed-cancel-select-btn').hide();
@@ -5085,7 +5085,7 @@ sketch or construction lines.`,
         updateFeedFabs();
 
         if (feedPosts.length === 0) {
-            $container.append('<div class="nova-post" style="justify-content: center; padding: 32px; color: var(--nova-text-muted);">Лента ожидает постов...</div>');
+            $container.append(`<div class="nova-post" style="justify-content: center; padding: 32px; color: var(--nova-text-muted);">${t('Лента ожидает постов...')}</div>`);
             return;
         }
 
@@ -5139,9 +5139,9 @@ sketch or construction lines.`,
                         ${renderAttachedImage({...post, type: 'post', feedIndex: index})}
                         ${renderMusicShare(post)}
                         <div class="nova-post-stats">
-                            <span title="Ответы"><i class="fa-regular fa-comment"></i> ${repliesCount}</span>
-                            <span title="Репосты"><i class="fa-solid fa-retweet"></i> ${post.retweets || 0}</span>
-                            <span title="Лайки"><i class="fa-regular fa-heart"></i> ${post.likes || 0}</span>
+                            <span title="${t('Ответы')}"><i class="fa-regular fa-comment"></i> ${repliesCount}</span>
+                            <span title="${t('Репосты')}"><i class="fa-solid fa-retweet"></i> ${post.retweets || 0}</span>
+                            <span title="${t('Лайки')}"><i class="fa-regular fa-heart"></i> ${post.likes || 0}</span>
                         </div>
                     </div>
                 </div>
@@ -5186,7 +5186,7 @@ sketch or construction lines.`,
                 lastCheckedFeedIndex = null;
                 selectedFeedPosts.delete(currentIndex);
             }
-            $('#nova-feed-confirm-delete-btn').text(`Удалить (${selectedFeedPosts.size})`);
+            $('#nova-feed-confirm-delete-btn').text(`${t('Удалить')} (${selectedFeedPosts.size})`);
         });
     }
 
@@ -5204,7 +5204,7 @@ sketch or construction lines.`,
 
         if (replySelectMode) {
             $('#nova-reply-cancel-select-btn').show();
-            $('#nova-reply-confirm-delete-btn').show().text(`Удалить (${selectedReplyKeys.size})`);
+            $('#nova-reply-confirm-delete-btn').show().text(`${t('Удалить')} (${selectedReplyKeys.size})`);
             $('#nova-reply-select-mode-btn').hide();
         } else {
             $('#nova-reply-cancel-select-btn').hide();
@@ -5233,9 +5233,9 @@ sketch or construction lines.`,
                 ${renderAttachedImage({...post, type: 'post', feedIndex: index})}
                 ${renderMusicShare(post)}
                 <div class="nova-post-stats" style="display: flex; gap: 20px; padding: 16px 0; margin: 0; font-size: 15px; color: var(--nova-text-muted); border-top: 1px solid var(--nova-border);">
-                    <span title="Ответить" class="nova-action-reply" data-handle="${post.handle}" data-text="${post.text.replace(/"/g, '&quot;')}" style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><i class="fa-regular fa-comment"></i> <b style="color: var(--nova-text);">${repliesCount}</b></span>
-                    <span title="Ретвиты" style="display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-retweet"></i> <b style="color: var(--nova-text);">${post.retweets || 0}</b></span>
-                    <span title="Лайки" style="display: flex; align-items: center; gap: 6px;"><i class="fa-regular fa-heart"></i> <b style="color: var(--nova-text);">${post.likes || 0}</b></span>
+                    <span title="${t('Ответить')}" class="nova-action-reply" data-handle="${post.handle}" data-text="${post.text.replace(/"/g, '&quot;')}" style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><i class="fa-regular fa-comment"></i> <b style="color: var(--nova-text);">${repliesCount}</b></span>
+                    <span title="${t('Ретвиты')}" style="display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-retweet"></i> <b style="color: var(--nova-text);">${post.retweets || 0}</b></span>
+                    <span title="${t('Лайки')}" style="display: flex; align-items: center; gap: 6px;"><i class="fa-regular fa-heart"></i> <b style="color: var(--nova-text);">${post.likes || 0}</b></span>
                 </div>
             </div>
         `;
@@ -5276,8 +5276,8 @@ sketch or construction lines.`,
                                 ${renderAttachedImage({...reply, type: 'reply', feedIndex: index, replyPath: currentPath.join(',')})}
                                 ${renderMusicShare(reply)}
                                 <div class="nova-reply-actions" style="margin-top: 8px; display: flex; gap: 16px; color: var(--nova-text-muted);">
-                                    <span class="nova-action-reply-to-comment" style="cursor: pointer; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-reply"></i> Ответить</span>
-                                    ${hasReplies ? `<span class="nova-action-toggle-thread" style="cursor: pointer; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-chevron-up"></i> Свернуть</span>` : ''}
+                                    <span class="nova-action-reply-to-comment" style="cursor: pointer; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-reply"></i> ${t('Ответить')}</span>
+                                    ${hasReplies ? `<span class="nova-action-toggle-thread" style="cursor: pointer; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-chevron-up"></i> ${t('Свернуть')}</span>` : ''}
                                 </div>
                             </div>
                         </div>
@@ -5292,7 +5292,7 @@ sketch or construction lines.`,
                         text: reply.text,
                         targetArray: reply.replies
                     };
-                    $('#nova-single-post-reply-input').attr('placeholder', `Ответить ${replyTarget.handle}...`).focus();
+                    $('#nova-single-post-reply-input').attr('placeholder', `${t('Ответить')} ${replyTarget.handle}...`).focus();
                 });
 
                 // В режиме выбора тап по телу ответа переключает его чекбокс — как
@@ -5309,7 +5309,7 @@ sketch or construction lines.`,
                     const key = String($(this).attr('data-key') || '');
                     if (this.checked) selectedReplyKeys.add(key);
                     else selectedReplyKeys.delete(key);
-                    $('#nova-reply-confirm-delete-btn').text(`Удалить (${selectedReplyKeys.size})`);
+                    $('#nova-reply-confirm-delete-btn').text(`${t('Удалить')} (${selectedReplyKeys.size})`);
                 });
 
                 $replyHtml.find('.nova-action-toggle-thread').on('click', function(e) {
@@ -5318,9 +5318,9 @@ sketch or construction lines.`,
                     const $text = $(this);
                     $container.slideToggle(200, function() {
                         if ($container.is(':visible')) {
-                            $text.html('<i class="fa-solid fa-chevron-up"></i> Свернуть');
+                            $text.html(`<i class="fa-solid fa-chevron-up"></i> ${t('Свернуть')}`);
                         } else {
-                            $text.html('<i class="fa-solid fa-chevron-down"></i> Развернуть');
+                            $text.html(`<i class="fa-solid fa-chevron-down"></i> ${t('Развернуть')}`);
                         }
                     });
                 });
@@ -5338,7 +5338,7 @@ sketch or construction lines.`,
         }
 
         if (repliesCount === 0) {
-            $repliesContainer.append('<div style="padding: 32px; text-align: center; color: var(--nova-text-muted);">Здесь пока нет ответов. Будьте первыми!</div>');
+            $repliesContainer.append(`<div style="padding: 32px; text-align: center; color: var(--nova-text-muted);">${t('Здесь пока нет ответов. Будьте первыми!')}</div>`);
         } else {
             renderRepliesList(post.replies, $repliesContainer);
         }
@@ -5350,7 +5350,7 @@ sketch or construction lines.`,
                 text: post.text,
                 targetArray: post.replies
             };
-            $('#nova-single-post-reply-input').attr('placeholder', `Ответить ${replyTarget.handle}...`).focus();
+            $('#nova-single-post-reply-input').attr('placeholder', `${t('Ответить')} ${replyTarget.handle}...`).focus();
         });
 
         $('#nova-single-post-reply-btn').off('click').on('click', async () => {
@@ -5361,7 +5361,7 @@ sketch or construction lines.`,
             
             const stContext = SillyTavern.getContext();
             const activeProfiles = getActiveProfiles();
-            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || 'Вы', handle: '@user', avatar: currentPersonaAvatarId() ? `/User Avatars/${currentPersonaAvatarId()}` : '', color: '#1da1f2' };
+            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || t('Вы'), handle: '@user', avatar: currentPersonaAvatarId() ? `/User Avatars/${currentPersonaAvatarId()}` : '', color: '#1da1f2' };
             
             // Держим ссылку на реплай юзера: ответы ИИ должны стать ЕГО веткой
             const userReply = {
@@ -5435,7 +5435,7 @@ sketch or construction lines.`,
         if ($replyAvatar.length) {
             const stContext = SillyTavern.getContext();
             const activeProfiles = getActiveProfiles();
-            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || 'Вы', color: '#1da1f2' };
+            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || t('Вы'), color: '#1da1f2' };
             if (userProfile.avatar) {
                 $replyAvatar.replaceWith(`<img id="nova-single-post-reply-avatar" src="${userProfile.avatar}" class="nova-profile-avatar" style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; object-fit: cover;">`);
             } else {
@@ -5485,8 +5485,8 @@ sketch or construction lines.`,
         $container.empty();
         $container.append(`
             <div style="padding: 16px; display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="margin-top:0; margin-bottom:0;">Сообщения</h2>
-                <button id="nova-new-dm-btn" title="Написать сообщение" style="background: transparent; color: var(--nova-accent); border: none; cursor: pointer; font-size: 20px; transition: 0.2s;"><i class="fa-solid fa-pen-to-square"></i></button>
+                <h2 style="margin-top:0; margin-bottom:0;">${t('Сообщения')}</h2>
+                <button id="nova-new-dm-btn" title="${t('Написать сообщение')}" style="background: transparent; color: var(--nova-accent); border: none; cursor: pointer; font-size: 20px; transition: 0.2s;"><i class="fa-solid fa-pen-to-square"></i></button>
             </div>
             <div id="nova-dms-list"></div>
         `);
@@ -5500,7 +5500,7 @@ sketch or construction lines.`,
             
             const activeProfiles = getActiveProfiles().filter(p => !p.isUser);
             if (activeProfiles.length === 0) {
-                $listContainer.append('<div style="color: var(--nova-text-muted); text-align: center; padding: 20px;">Нет доступных персонажей.</div>');
+                $listContainer.append(`<div style="color: var(--nova-text-muted); text-align: center; padding: 20px;">${t('Нет доступных персонажей.')}</div>`);
             } else {
                 activeProfiles.forEach(p => {
                     const avatarHtml = p.avatar 
@@ -5657,7 +5657,7 @@ sketch or construction lines.`,
 
         const $list = $('#nova-dms-list');
         if (dmThreads.length === 0) {
-            $list.append('<div style="color: var(--nova-text-muted); text-align: center; padding: 40px;">Нет новых сообщений.</div>');
+            $list.append(`<div style="color: var(--nova-text-muted); text-align: center; padding: 40px;">${t('Нет новых сообщений.')}</div>`);
             updateUnreadBadge();
             return;
         }
@@ -5678,11 +5678,11 @@ sketch or construction lines.`,
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                             <div class="nova-dm-text" style="color: var(--nova-text-muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">
-                                ${lastMsg.sender === 'user' ? 'Вы: ' : ''}${lastMsg.text}
+                                ${lastMsg.sender === 'user' ? `${t('Вы')}: ` : ''}${lastMsg.text}
                             </div>
                             <div style="display: flex; gap: 8px; align-items: center;">
                                 ${unreadBadge}
-                                <div class="nova-dm-card-delete-btn" style="color: var(--nova-text-muted); padding: 4px; border-radius: 50%; font-size: 12px; transition: color 0.2s;" title="Удалить чат">
+                                <div class="nova-dm-card-delete-btn" style="color: var(--nova-text-muted); padding: 4px; border-radius: 50%; font-size: 12px; transition: color 0.2s;" title="${t('Удалить чат')}">
                                     <i class="fa-solid fa-trash-can"></i>
                                 </div>
                             </div>
@@ -5696,7 +5696,7 @@ sketch or construction lines.`,
         $('.nova-dm-card').on('click', function(e) {
             if ($(e.target).closest('.nova-dm-card-delete-btn').length) {
                 const idx = $(this).data('index');
-                novaConfirm("Вы уверены, что хотите удалить весь чат? Это действие необратимо.", () => {
+                novaConfirm(`${t('Вы уверены, что хотите удалить весь чат?')} ${t('Это действие необратимо.')}`, () => {
                     (dmThreads[idx]?.messages || []).forEach(revertRelationshipsDeep);
                     dmThreads.splice(idx, 1);
                     saveFeed();
@@ -5729,9 +5729,9 @@ sketch or construction lines.`,
     //   /музыка <запрос>
     //   /плейлист "<название>" <трек1>, <трек2>, ...
     const NOVA_DM_COMMANDS = [
-        { name: '/фото', icon: 'fa-camera', hint: 'описание', desc: 'Отправить своё фото' },
-        { name: '/музыка', icon: 'fa-music', hint: 'исполнитель — трек', desc: 'Поделиться треком' },
-        { name: '/плейлист', icon: 'fa-list', hint: '"название" трек1, трек2', desc: 'Собрать плейлист' },
+        { name: '/фото', icon: 'fa-camera', get hint() { return t('описание'); }, get desc() { return t('Отправить своё фото'); } },
+        { name: '/музыка', icon: 'fa-music', get hint() { return t('исполнитель — трек'); }, get desc() { return t('Поделиться треком'); } },
+        { name: '/плейлист', icon: 'fa-list', get hint() { return t('"название" трек1, трек2'); }, get desc() { return t('Собрать плейлист'); } },
     ];
 
     /**
@@ -5901,7 +5901,7 @@ sketch or construction lines.`,
         // У группы аватар можно сменить — жмём по нему
         const $avatarBox = $('#nova-single-dm-avatar-container').html(renderThreadAvatar(thread, 40));
         $avatarBox.toggleClass('nova-avatar-editable', !!thread.isGroup)
-            .attr('title', thread.isGroup ? 'Сменить аватар группы' : '');
+            .attr('title', thread.isGroup ? t('Сменить аватар группы') : '');
 
         $avatarBox.off('click').on('click', () => {
             if (!thread.isGroup) return;
@@ -5930,7 +5930,7 @@ sketch or construction lines.`,
 
         const stContext = SillyTavern.getContext();
         const activeProfiles = getActiveProfiles();
-        const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || 'Вы', color: '#1da1f2' };
+        const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || t('Вы'), color: '#1da1f2' };
 
         thread.messages = thread.messages || [];
         thread.messages.forEach((msg, msgIndex) => {
@@ -6355,8 +6355,14 @@ sketch or construction lines.`,
     // Единицы по умолчанию — для интерфейса. В чат ролевой уходят единицы её языка
     // (NovaPrompts.rp().chat.units), иначе в английской ролевой было бы «15м назад».
     const RELATIVE_TIME_UNITS_RU = { justNow: 'только что', minute: 'м', hour: 'ч', day: 'д', week: 'нед' };
+    const RELATIVE_TIME_UNITS_EN = { justNow: 'just now', minute: 'm', hour: 'h', day: 'd', week: 'w' };
 
-    function formatRelativeTime(minutes, units = RELATIVE_TIME_UNITS_RU) {
+    /** Единицы для интерфейса — следуют языку панели, а не языку ролевой. */
+    function getUiRelativeTimeUnits() {
+        return getUiLanguage() === 'en' ? RELATIVE_TIME_UNITS_EN : RELATIVE_TIME_UNITS_RU;
+    }
+
+    function formatRelativeTime(minutes, units = getUiRelativeTimeUnits()) {
         const m = Math.max(0, Math.round(minutes));
         if (m < 1) return units.justNow;
         if (m < 60) return `${m}${units.minute}`;
@@ -6456,8 +6462,7 @@ sketch or construction lines.`,
     function describeThreadSubtitle(thread) {
         if (!thread?.isGroup) return thread?.handle || '';
         const count = (thread.participants || []).length;
-        const plural = count === 1 ? 'участник' : (count >= 2 && count <= 4 ? 'участника' : 'участников');
-        return `${count} ${plural}`;
+        return pluralUi(count, { ru: ['участник', 'участника', 'участников'], en: ['member', 'members'] });
     }
 
     /**
@@ -6614,8 +6619,8 @@ sketch or construction lines.`,
         // В беседе важно, кому именно ушли деньги — иначе перевод выглядит адресованным всем
         const toName = String(transfer?.to_name || '').trim();
         const label = isUser
-            ? (toName ? `Вы отправили — ${toName}` : 'Вы отправили')
-            : 'Вам перевели';
+            ? (toName ? `${t('Вы отправили')} — ${toName}` : t('Вы отправили'))
+            : t('Вам перевели');
         return `
             <div class="nova-transfer-card ${isUser ? 'outgoing' : 'incoming'}">
                 <div class="nova-transfer-icon"><i class="fa-solid fa-arrow-${isUser ? 'up' : 'down'}"></i></div>
@@ -6634,15 +6639,15 @@ sketch or construction lines.`,
     function renderAvatarSuggestionCard(suggestion, thread) {
         const name = escapeHtml(thread?.name || '');
         const text = suggestion.status === 'accepted'
-            ? `${name} добавил(а) эту фотографию в профиль`
+            ? `${name} ${t('добавил(а) эту фотографию в профиль')}`
             : suggestion.status === 'declined'
-            ? `${name} отклонил(а) предложенную фотографию`
-            : `Вы предложили ${name} добавить эту фотографию в профиль`;
+            ? `${name} ${t('отклонил(а) предложенную фотографию')}`
+            : `${t('Вы предложили')} ${name} ${t('добавить эту фотографию в профиль')}`;
         return `
             <div class="nova-avatar-suggestion-card">
                 <div class="nova-avatar-suggestion-photo"><img src="${escapeHtml(suggestion.image)}" alt=""></div>
                 <div class="nova-avatar-suggestion-text">${text}</div>
-                <button type="button" class="nova-avatar-suggestion-view">Посмотреть фото</button>
+                <button type="button" class="nova-avatar-suggestion-view">${t('Посмотреть фото')}</button>
             </div>
         `;
     }
@@ -6655,8 +6660,8 @@ sketch or construction lines.`,
         return `
             <div class="nova-avatar-suggestion-card">
                 <div class="nova-avatar-suggestion-photo wallpaper"><img src="${escapeHtml(change.image)}" alt=""></div>
-                <div class="nova-avatar-suggestion-text">Вы установили обои в чате с ${name}</div>
-                <button type="button" class="nova-avatar-suggestion-view">Посмотреть фото</button>
+                <div class="nova-avatar-suggestion-text">${t('Вы установили обои в чате с')} ${name}</div>
+                <button type="button" class="nova-avatar-suggestion-view">${t('Посмотреть фото')}</button>
             </div>
         `;
     }
@@ -6669,7 +6674,7 @@ sketch or construction lines.`,
         return `
             <div class="nova-avatar-suggestion-card">
                 <div class="nova-avatar-suggestion-photo wallpaper nova-theme-art nova-theme-art-${escapeHtml(theme.id)}" style="background: ${theme.background || 'var(--nova-surface)'};"></div>
-                <div class="nova-avatar-suggestion-text">Вы установили тему «${escapeHtml(theme.name)}» в чате с ${name}</div>
+                <div class="nova-avatar-suggestion-text">${t('Вы установили тему')} «${escapeHtml(theme.name)}» ${t('в чате с')} ${name}</div>
             </div>
         `;
     }
@@ -6692,7 +6697,7 @@ sketch or construction lines.`,
             <div id="nova-theme-picker-overlay" class="nova-folder-overlay active" style="z-index: 9999; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; background: rgba(0,0,0,0.6);">
                 <div class="nova-theme-picker-modal">
                     <div class="nova-playlist-modal-header">
-                        <div class="nova-playlist-modal-title">Тема чата</div>
+                        <div class="nova-playlist-modal-title">${t('Тема чата')}</div>
                         <i class="fa-solid fa-xmark nova-playlist-modal-close"></i>
                     </div>
                     <div class="nova-theme-picker-grid">${tiles}</div>
@@ -7875,6 +7880,201 @@ sketch or construction lines.`,
         'Отношения с': 'Relationship with',
         'пересчитаны': 'recalculated',
         'Не удалось пересчитать:': 'Failed to recalculate:',
+
+        // ─── Ещё динамика: карточки, модалки, плейсхолдеры ──────────────────────
+        'Кому': 'To',
+        'Сумма': 'Amount',
+        'Валюта': 'Currency',
+        'Комментарий': 'Comment',
+        'необязательно': 'optional',
+        'Доллар': 'Dollar',
+        'Евро': 'Euro',
+        'Рубль': 'Ruble',
+        'Фунт': 'Pound',
+        'Юань': 'Yuan',
+        'Иена': 'Yen',
+        'Подтверждение': 'Confirmation',
+        'Пересказ': 'Summary',
+        'Пересказано в чат': 'Summarized into chat',
+        'Вставлено в чат': 'Inserted into chat',
+        'Обычная': 'Default',
+        'Романтика': 'Romance',
+        'Полночь': 'Midnight',
+        'Лес': 'Forest',
+        'Закат': 'Sunset',
+        'Враждебность': 'Hostility',
+        'Неприязнь': 'Dislike',
+        'Нейтралитет': 'Neutral',
+        'Приятели': 'Acquaintances',
+        'Друзья': 'Friends',
+        'Близкие друзья': 'Close friends',
+        'Слушать через MoodTube': 'Listen via MoodTube',
+        'трек': 'track',
+        'треков': 'tracks',
+        'Включить всё': 'Play all',
+        'Плейлист': 'Playlist',
+        'Генерируется': 'Generating',
+        'В очереди': 'In queue',
+        'Не удалось сгенерировать картинку': 'Failed to generate the image',
+        'Не удалось сгенерировать': 'Failed to generate',
+        'Повторить': 'Retry',
+        'Генерируется новая версия': 'Generating a new version',
+        'Копировать промпт': 'Copy prompt',
+        'Предыдущая версия': 'Previous version',
+        'Следующая версия': 'Next version',
+        'Предыдущее фото': 'Previous photo',
+        'Следующее фото': 'Next photo',
+        'Перегенерировать (тот же промпт)': 'Regenerate (same prompt)',
+        'Изменить промпт': 'Edit prompt',
+        'Скачать в полном качестве': 'Download full quality',
+        'Открыть профиль': 'Open profile',
+        'Репосты': 'Reposts',
+        'Лайки': 'Likes',
+        'Ответить': 'Reply',
+        'Ретвиты': 'Retweets',
+        'Здесь пока нет ответов. Будьте первыми!': 'No replies here yet. Be the first!',
+        'Написать сообщение': 'Write a message',
+        'Нет доступных персонажей.': 'No characters available.',
+        'Нет новых сообщений.': 'No new messages.',
+        'Вы уверены, что хотите удалить весь чат?': 'Are you sure you want to delete the whole chat?',
+        'описание': 'description',
+        'Отправить своё фото': 'Send your photo',
+        'исполнитель — трек': 'artist — track',
+        'Поделиться треком': 'Share a track',
+        '"название" трек1, трек2': '"name" track1, track2',
+        'Собрать плейлист': 'Build a playlist',
+        'Сменить аватар группы': 'Change group avatar',
+        'участник': 'member',
+        'участника': 'members',
+        'участников': 'members',
+        'Вы отправили': 'You sent',
+        'Вам перевели': 'You received a transfer',
+        'добавил(а) эту фотографию в профиль': 'added this photo to the profile',
+        'отклонил(а) предложенную фотографию': 'declined the suggested photo',
+        'Вы предложили': 'You suggested',
+        'добавить эту фотографию в профиль': 'to add this photo to the profile',
+        'Посмотреть фото': 'View photo',
+        'Вы установили обои в чате с': 'You set the wallpaper in the chat with',
+        'Вы установили тему': 'You set the theme',
+        'в чате с': 'in the chat with',
+        'Удалить этот блок из памяти чата?': 'Delete this block from chat memory?',
+        'Ищу дубликаты...': 'Looking for duplicates...',
+        'Ничего не нашлось — всё уже хранится файлами.': 'Nothing found — everything is already stored as files.',
+        'Готово:': 'Done:',
+        'картинок перенесено в файлы, заменено': 'images moved into files, replaced',
+        'вхождений.': 'occurrences.',
+        'Не получилось:': 'Failed:',
+        '0 (Авто)': '0 (Auto)',
+        'без лимита': 'no limit',
+        'Новая персона': 'New persona',
+        'Название (необязательно)': 'Name (optional)',
+        'Новая папка': 'New folder',
+        'Название папки': 'Folder name',
+        'Как назвать эту папку?': 'What should this folder be called?',
+        'Новый профиль': 'New profile',
+        'Название профиля': 'Profile name',
+        'Новый промпт': 'New prompt',
+        'Новый стиль': 'New style',
+        'Название стиля': 'Style name',
+        'Удалить эту персону? Профиль (имя, ник, био) будет потерян.': 'Delete this persona? The profile (name, handle, bio) will be lost.',
+        'Выберите область для аватарки': 'Choose the crop area for the avatar',
+        'Выберите область для шапки': 'Choose the crop area for the banner',
+        'Выберите область': 'Choose the crop area',
+        'Квадрат': 'Square',
+        'Кружок': 'Circle',
+        'Двигайте рамку и тяните за углы': 'Drag the frame and pull the corners',
+        'Применить': 'Apply',
+        'Выключено': 'Off',
+        'Нет профиля': 'No profile',
+        'До': 'Up to',
+        'за раз': 'per batch',
+        'Без названия': 'Untitled',
+        '— нет профилей, создайте —': '— no profiles, create one —',
+        'Подключение взято из sillyimages:': 'Connection taken from sillyimages:',
+        'тип': 'type',
+        'модель': 'model',
+        'Менять их нужно там же, в настройках sillyimages.': 'Change them there, in sillyimages settings.',
+        'Расширение sillyimages не найдено или в нём не заполнены эндпоинт и ключ. ': 'The sillyimages extension was not found, or its endpoint and key are not filled in. ',
+        'Настройте его либо снимите галочку и заведите профиль здесь.': 'Configure it, or uncheck the box and set up a profile here.',
+        'OpenAI-совместимый': 'OpenAI-compatible',
+        '— нажмите обновить —': '— click refresh —',
+        'Заполните URL и ключ, затем нажмите кнопку обновления рядом.': 'Fill in the URL and key, then click the refresh button next to it.',
+        'Список моделей Naistera фиксированный.': 'The Naistera model list is fixed.',
+        'Нет активных персонажей и NPC.': 'No active characters or NPCs.',
+        '— не привязан —': '— not linked —',
+        'нет в этом чате': 'not in this chat',
+        'Всегда': 'Always',
+        'Когда в кадре': 'When in frame',
+        'кл. слов': 'keywords',
+        'Заменить изображение': 'Replace image',
+        'Имя (подписывается на картинке)': 'Name (captioned on the image)',
+        'Ключевые слова через запятую': 'Keywords, comma-separated',
+        'Подпись': 'Caption',
+        'Убрать в архив': 'Move to archive',
+        'Удалить референс': 'Delete reference',
+        'Все референсы в архиве. Верните нужный ниже или загрузите новый.': 'All references are archived. Bring one back below, or upload a new one.',
+        'Референсов пока нет. Загрузите фото персонажа, чтобы он выглядел одинаково на всех картинках.': 'No references yet. Upload a photo of the character so they look consistent across images.',
+        'Вернуть в работу': 'Restore',
+        'Удалить навсегда': 'Delete permanently',
+        'Проверяю...': 'Checking...',
+        'Тестовая генерация прошла успешно': 'Test generation succeeded',
+        '-- Главный API --': '-- Main API --',
+        'Юзернейм': 'Username',
+        'Аватарка и шапка профиля для соцсети.': 'Avatar and banner for the social profile.',
+        'Что изображено на аватарке (для НПС)': "What the avatar shows (for NPCs)",
+        'Генерация...': 'Generating...',
+        'Сохранить': 'Save',
+        'Откатить': 'Revert',
+        'Редактировать НПС': 'Edit NPC',
+        'Удалить NPC?': 'Delete NPC?',
+        'Вы точно хотите удалить': 'Are you sure you want to delete',
+        'Удалить папку?': 'Delete folder?',
+        'Все её NPC будут удалены.': 'All its NPCs will be deleted.',
+        'Удалить выбранных?': 'Delete selected?',
+        'Будет удалено NPC:': 'NPCs to be deleted:',
+        'Добавить в этот чат': 'Add to this chat',
+        'Вкл/Выкл папку': 'Enable/disable folder',
+        'В архив': 'To archive',
+        'Удалить папку': 'Delete folder',
+        'Выбрано:': 'Selected:',
+        'Нет других папок': 'No other folders',
+        'Включить NPC в ленте': 'Enable NPC in the feed',
+        'Действия': 'Actions',
+        'Папка пуста': 'Folder is empty',
+        'Редактировать': 'Edit',
+        'Переместить в…': 'Move to…',
+        'Копировать в…': 'Copy to…',
+        'Других папок пока нет': 'No other folders yet',
+        'Переместить в': 'Move to',
+        'Копировать в': 'Copy to',
+        'Поиск папки…': 'Search folder…',
+        'Ничего не найдено': 'Nothing found',
+        'Ответ': 'Reply',
+        'Пост': 'Post',
+        'Личка ·': 'DM ·',
+        'Вы': 'You',
+        'Пока пусто.': 'Nothing here yet.',
+        'Здесь будут картинки, созданные и приложенные в NOVA.': 'Images created and attached in NOVA will appear here.',
+        'Здесь будут все картинки этого чата.': 'All images from this chat will appear here.',
+        'Пока никто не отслеживается.': 'No one is being tracked yet.',
+        'Отметьте героев выше — их симпатия появится здесь.': 'Check characters above — their affinity will appear here.',
+        'Пока нет реакций.': 'No reactions yet.',
+        'Ещё': 'More',
+        'Пересчитать по контексту РП': 'Recalculate from RP context',
+        'Сбросить отношения': 'Reset relationship',
+        'Модель не вернула оценку': 'The model did not return a score',
+        'Сейчас:': 'Now:',
+        'Сбросить отношения с': 'Reset relationship with',
+        'Симпатия вернётся к 50%, история реакций сотрётся.': 'Affinity will reset to 50%, and reaction history will be cleared.',
+        '· сообщение #': '· message #',
+        ', блок ': ', block ',
+        'Пока нет сохранённого контекста.': 'No saved context yet.',
+        'Перегенерировать': 'Regenerate',
+        'Отправить': 'Send',
+        'Готово': 'Done',
+        'Свернуть': 'Collapse',
+        'Развернуть': 'Expand',
+        'Удалить чат': 'Delete chat',
     };
 
     /** Перевод одной строки — для JS-строк, собираемых динамически. RU остаётся RU, если словарь молчит. */
@@ -8288,7 +8488,7 @@ sketch or construction lines.`,
         $('#nova-create-post-btn').on('click', () => {
             const stContext = SillyTavern.getContext();
             const activeProfiles = getActiveProfiles();
-            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || 'Вы', color: '#1da1f2' };
+            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || t('Вы'), color: '#1da1f2' };
             const $avatar = $('#nova-create-post-avatar');
             if (userProfile.avatar) {
                 $avatar.replaceWith(`<img id="nova-create-post-avatar" src="${userProfile.avatar}" class="nova-profile-avatar" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover;">`);
@@ -11036,7 +11236,7 @@ sketch or construction lines.`,
         (dmThreads || []).forEach(thread => {
             (thread?.messages || []).forEach(msg => {
                 if (!msg?.image) return;
-                const who = msg.sender === 'user' ? 'Вы' : (msg.sender_name || thread.name);
+                const who = msg.sender === 'user' ? t('Вы') : (msg.sender_name || thread.name);
                 items.push({ image: msg.image, thumbnail: msg.thumbnail, prompt: msg.imagePrompt, author: who, source: `Личка · ${thread.name}`, msg: msg, userPhoto: !!msg.userPhoto });
             });
         });
