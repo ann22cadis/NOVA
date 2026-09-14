@@ -606,23 +606,29 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
     const CONTEXT_KINDS = {
         summary: {
             mark: MARK_SUMMARY,
-            label: 'События в соцсети',   // подпись внутри блока, уезжает модели
             title: 'Пересказ',            // как называется в интерфейсе
             color: '#4caf50',
             markerText: 'Пересказано в чат',
         },
         transcript: {
             mark: MARK_INSERT,
-            label: 'Переписка в соцсети',
             title: 'Переписка',
             color: '#1da1f2',
             markerText: 'Вставлено в чат',
         },
     };
 
+    /** Подпись внутри блока (её видит модель в чате) — на языке ролевой. */
+    function contextLabelFor(kind) {
+        const chat = NovaPrompts.rp().chat;
+        return kind === 'transcript' ? chat.transcriptLabel : chat.summaryLabel;
+    }
+
+    // Искать блоки надо по подписям ВСЕХ языков: вставленный по-русски блок обязан
+    // находиться и после переключения ролевой на английский, и наоборот.
     // 💭 События — подпись из старых версий расширения, читаем ради совместимости.
     // Группа 1 — вид блока, группа 2 — сам текст.
-    const CONTEXT_LABELS = '💭 События|События в соцсети|Переписка в соцсети';
+    const CONTEXT_LABELS = ['💭 События', ...NovaPrompts.allContextLabels()].map(escapeRegex).join('|');
     /** Новый экземпляр: у глобальной регулярки живёт lastIndex и её нельзя переиспользовать. */
     function contextMarkerRegex(trailing = false) {
         return new RegExp(
@@ -633,7 +639,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
 
     /** По подписи из блока — какой это вид. Неизвестное считаем пересказом: так было раньше. */
     function contextKindByLabel(label) {
-        return label === CONTEXT_KINDS.transcript.label ? 'transcript' : 'summary';
+        return NovaPrompts.isTranscriptLabel(label) ? 'transcript' : 'summary';
     }
 
     /**
@@ -686,8 +692,10 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
      * @returns {{legend: string, feed: string, dms: string}}
      */
     function describeEvents(events) {
+        // Всё это уходит прямо в чат ролевой — значит, на её языке
+        const L = NovaPrompts.rp();
         const profiles = getActiveProfiles();
-        const userProfile = profiles.find(p => p.isUser) || { name: 'Игрок', handle: '@user', isUser: true };
+        const userProfile = profiles.find(p => p.isUser) || { name: L.playerWord, handle: '@user', isUser: true };
 
         const seen = [];
         const fallbackNames = {};
@@ -719,7 +727,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
                 if (!r) return;
                 remember(r.handle, r.name);
                 const text = flat(r.text);
-                if (text) feedLines.push(`${'  '.repeat(depth)}↳ ответ ${label(r.handle, r.name)}: ${text}`);
+                if (text) feedLines.push(`${'  '.repeat(depth)}${L.chat.replyFrom(label(r.handle, r.name))}: ${text}`);
                 pushReplies(r.replies, depth + 1);
             });
         };
@@ -730,12 +738,13 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
             remember(post.handle, post.name);
             const text = flat(post.text);
             if (!text && !post.image) return;
-            const age = describePostAge(post);
-            const when = age ? (age === 'только что' ? 'только что' : `${age} назад`) : '';
+            const units = L.chat.units;
+            const age = describePostAge(post, units);
+            const when = age ? (age === units.justNow ? age : L.chat.ago(age)) : '';
             // Полный промпт, а не «прикреплено изображение» без подробностей: модель,
             // читающая саммари в основном чате, иначе не знает, что именно на фото
             const imagePrompt = flat(post.imagePrompt || '');
-            const image = post.image ? (imagePrompt ? ` (прикреплено изображение: ${imagePrompt})` : ' (прикреплено изображение)') : '';
+            const image = post.image ? ` (${L.chat.imageAttached(imagePrompt)})` : '';
             feedLines.push(`${when ? when + ' · ' : ''}${label(post.handle, post.name)}: ${text}${image}`);
             pushReplies(post.replies, 1);
         });
@@ -750,10 +759,10 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
                 const members = (thread.participants || [])
                     .map(h => { remember(h, null); return label(h, null); })
                     .join(', ');
-                dmLines.push(`Групповая беседа «${thread.name}»${members ? ` — участники: ${members}` : ''}:`);
+                dmLines.push(L.chat.groupChat(thread.name, members));
             } else {
                 remember(thread.handle, thread.name);
-                dmLines.push(`Переписка с ${label(thread.handle, thread.name)}:`);
+                dmLines.push(L.chat.dmWith(label(thread.handle, thread.name)));
             }
             messages.forEach(m => {
                 const isUser = m.sender === 'user';
@@ -830,7 +839,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (!stContext?.chat) return;
 
-        const label = (CONTEXT_KINDS[kind] || CONTEXT_KINDS.summary).label;
+        const label = contextLabelFor(kind);
         const hiddenText = `\n<span class="nova-hidden-context" style="display:none;" title="NOVA Context">[${label}: ${sanitizeContextPayload(payload)}]</span>\n`;
 
         if (stContext.chat.length > 0) {
@@ -882,10 +891,11 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
 
         // Без пустых строк: пустая строка внутри сообщения обрывает HTML-блок
         // в разметке Таверны, и остаток выгрузки становится видимым в чате
-        const parts = ['Ниже — дословная выгрузка из соцсети NOVA, а не пересказ.'];
-        if (legend) parts.push('КТО ЕСТЬ КТО (ники в соцсети не совпадают с именами):', legend);
-        if (feed) parts.push('ЛЕНТА:', feed);
-        if (dms) parts.push('ЛИЧНЫЕ СООБЩЕНИЯ:', dms);
+        const chatText = NovaPrompts.rp().chat;
+        const parts = [chatText.transcriptIntro];
+        if (legend) parts.push(chatText.whoIsWho, legend);
+        if (feed) parts.push(chatText.feed, feed);
+        if (dms) parts.push(chatText.dms, dms);
 
         // Сначала блок в чат, потом метки: renderFeed сверяет полоски с содержимым
         // чата и снял бы только что поставленную метку, не найдя блока
@@ -937,8 +947,9 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
             return;
         }
 
-        const parts = ['Ниже — дословная переписка из личных сообщений NOVA, а не пересказ.'];
-        if (legend) parts.push('КТО ЕСТЬ КТО (ники в соцсети не совпадают с именами):', legend);
+        const chatText = NovaPrompts.rp().chat;
+        const parts = [chatText.threadTranscriptIntro];
+        if (legend) parts.push(chatText.whoIsWho, legend);
         parts.push(dms);
 
         // Сначала блок в чат: перерисовка сверяет полоски с содержимым чата
@@ -976,7 +987,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         try {
             const activeProfiles = typeof getActiveProfiles === 'function' ? getActiveProfiles() : [];
             
-            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: 'Игрок' };
+            const userProfile = activeProfiles.find(ap => ap.isUser) || { name: NovaPrompts.rp().playerWord };
 
             // 1. Последний блок контекста из чата — любого вида: пересказ не должен
             // повторять ни прошлый пересказ, ни то, что уже вставлено дословно
@@ -4931,9 +4942,24 @@ sketch or construction lines.`,
             });
     }
 
+    /**
+     * Строка профиля для промпта. Это обвязка, а не вывод — поэтому всегда по-английски
+     * и не зависит от языка ролевой (инструкции модели на английском, пишет она на
+     * языке РП). Раньше эта строка была собрана вручную в пяти местах, каждое со своими
+     * русскими формулировками.
+     * @param {object} p профиль из getActiveProfiles()
+     * @param {{bullet?: boolean}} [opts] bullet — префикс «- » для списков в ленте
+     */
+    function promptProfileLine(p, { bullet = false } = {}) {
+        const head = `${bullet ? '- ' : ''}${p.name} (${p.handle}):`;
+        if (p.type === 'npc') return `${head} ${p.desc || ''} | Style: ${p.style || ''}`;
+        if (p.isUser) return `${head} [PLAYER / USER] NEVER write posts or messages as this account.`;
+        return `${head} Character from the current chat — personality, history and style come from their character card.`;
+    }
+
     async function getChatContext() {
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
-        if (!stContext || !stContext.chat) return "Нет контекста.";
+        if (!stContext || !stContext.chat) return "No context.";
 
         const settings = stContext.extensionSettings?.NOVA || {};
         const depth = parseInt($('#nova-context-size').val()) || 50;
@@ -4947,9 +4973,9 @@ sketch or construction lines.`,
             const desc = powerUser.persona_description
                 || powerUser.persona_descriptions?.[powerUser.default_persona]?.description
                 || '';
-            const name = stContext.name1 || 'Персона';
+            const name = stContext.name1 || 'Persona';
             if (desc) {
-                contextParts.push(`USER PERSONA — «${name}» (описание самого игрока/пользователя):\n${desc}`);
+                contextParts.push(`USER PERSONA — "${name}" (the player themselves):\n${desc}`);
             }
         }
 
@@ -4968,12 +4994,12 @@ sketch or construction lines.`,
 
             activeChars.forEach(char => {
                 const parts = [];
-                if (char.description) parts.push(`Описание: ${char.description}`);
-                if (char.personality) parts.push(`Личность: ${char.personality}`);
-                if (char.scenario) parts.push(`Сценарий: ${char.scenario}`);
-                if (char.mes_example) parts.push(`Примеры реплик: ${char.mes_example}`);
+                if (char.description) parts.push(`Description: ${char.description}`);
+                if (char.personality) parts.push(`Personality: ${char.personality}`);
+                if (char.scenario) parts.push(`Scenario: ${char.scenario}`);
+                if (char.mes_example) parts.push(`Example dialogue: ${char.mes_example}`);
                 if (parts.length > 0) {
-                    contextParts.push(`CHARACTER CARD — «${char.name}» (персонаж):\n${parts.join('\n')}`);
+                    contextParts.push(`CHARACTER CARD — "${char.name}":\n${parts.join('\n')}`);
                 }
             });
         }
@@ -4990,7 +5016,7 @@ sketch or construction lines.`,
                 const wi = await stContext.getWorldInfoPrompt(chatForWI, stContext.maxContext, true);
                 const worldInfoString = String(wi?.worldInfoString || '').trim();
                 if (worldInfoString) {
-                    contextParts.push(`LORE / WORLD INFO (лор и мировая информация):\n${worldInfoString}`);
+                    contextParts.push(`LORE / WORLD INFO:\n${worldInfoString}`);
                 }
             } catch (e) {
                 console.warn('[NOVA] Не удалось собрать World Info', e);
@@ -5013,13 +5039,13 @@ sketch or construction lines.`,
             }
 
             if (notes.length) {
-                contextParts.push(`AUTHOR'S NOTE (указания автора по текущей сцене — учитывай их):\n${notes.join('\n\n')}`);
+                contextParts.push(`AUTHOR'S NOTE (the author's directions for the current scene — follow them):\n${notes.join('\n\n')}`);
             }
         }
 
         // 5. Recent Chat History
         const recent = stContext.chat.slice(-depth).map(m => `${m.name}: ${m.mes}`).join('\n');
-        contextParts.push(`ИСТОРИЯ ЧАТА (последние ${depth} сообщений):\n${recent || "Нет сообщений в чате."}`);
+        contextParts.push(`CHAT HISTORY (last ${depth} messages):\n${recent || "No messages in the chat yet."}`);
 
         return contextParts.join('\n\n---\n\n');
     }
@@ -5358,11 +5384,7 @@ sketch or construction lines.`,
 
             try {
                 const chatContext = await getChatContext();
-                const profilesInfo = activeProfiles.map(p => {
-                    if (p.type === 'npc') return `- ${p.name} (${p.handle}): ${p.desc} | Стиль: ${p.style}`;
-                    if (p.isUser) return `- ${p.name} (${p.handle}): [ИГРОК / ЮЗЕР] КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО генерировать посты или сообщения от этого лица.`;
-                    return `- ${p.name} (${p.handle}): Персонаж из чата.`;
-                }).join('\n');
+                const profilesInfo = activeProfiles.map(p => promptProfileLine(p, { bullet: true })).join('\n');
                 
                 // Весь этот батч — реакции НА конкретный реплай юзера в треде, не обычная
                 // лента вперемешку с чужими темами: строгий фильтр релевантности тут не нужен
@@ -6330,20 +6352,24 @@ sketch or construction lines.`,
         return amount;
     }
 
-    function formatRelativeTime(minutes) {
+    // Единицы по умолчанию — для интерфейса. В чат ролевой уходят единицы её языка
+    // (NovaPrompts.rp().chat.units), иначе в английской ролевой было бы «15м назад».
+    const RELATIVE_TIME_UNITS_RU = { justNow: 'только что', minute: 'м', hour: 'ч', day: 'д', week: 'нед' };
+
+    function formatRelativeTime(minutes, units = RELATIVE_TIME_UNITS_RU) {
         const m = Math.max(0, Math.round(minutes));
-        if (m < 1) return 'только что';
-        if (m < 60) return `${m}м`;
-        if (m < 60 * 24) return `${Math.floor(m / 60)}ч`;
+        if (m < 1) return units.justNow;
+        if (m < 60) return `${m}${units.minute}`;
+        if (m < 60 * 24) return `${Math.floor(m / 60)}${units.hour}`;
         const days = Math.floor(m / (60 * 24));
-        return days < 7 ? `${days}д` : `${Math.floor(days / 7)}нед`;
+        return days < 7 ? `${days}${units.day}` : `${Math.floor(days / 7)}${units.week}`;
     }
 
     // Насколько пост стар относительно самого свежего события в ленте
-    function describePostAge(post) {
+    function describePostAge(post, units) {
         if (typeof post?.rpMinutes !== 'number') return post?.time || '';
         const newest = feedPosts.reduce((max, p) => (typeof p?.rpMinutes === 'number' && p.rpMinutes > max ? p.rpMinutes : max), rpClock);
-        return formatRelativeTime(newest - post.rpMinutes);
+        return formatRelativeTime(newest - post.rpMinutes, units);
     }
 
     function countRepliesDeep(replies) {
@@ -6505,46 +6531,49 @@ sketch or construction lines.`,
         return result.trim();
     }
 
+    /**
+     * Сообщение ЛС одной строкой — для истории переписки в промпте и для вставки в чат.
+     * Служебные пометки на языке ролевой: в чат они попадают как есть.
+     */
     function describeDMMessage(msg) {
+        const L = NovaPrompts.rp();
+        const c = L.chat;
         if (msg?.avatarSuggestion) {
             const s = msg.avatarSuggestion;
-            const status = s.status === 'accepted' ? 'персонаж принял и уже сменил фото'
-                : s.status === 'declined' ? 'персонаж отклонил'
-                : 'персонаж ещё не ответил';
-            return `[юзер предложил фото на аватар профиля; ${status}]`;
+            const status = s.status === 'accepted' ? c.avatarAccepted
+                : s.status === 'declined' ? c.avatarDeclined
+                : c.avatarPending;
+            return c.avatarSuggested(status);
         }
         if (msg?.wallpaperChange) {
-            return `[юзер установил(а) новые обои в этой переписке]`;
+            return c.wallpaperSet;
         }
         if (msg?.themeChange) {
             const theme = getDMTheme(msg.themeChange.themeId);
-            return `[юзер сменил(а) тему оформления переписки на «${theme.name}»]`;
+            // Названия тем — часть интерфейса и пока только русские; английской
+            // ролевой отдаём id темы («forest»), он и так человекочитаемый
+            return c.themeSet(L.code === 'ru' ? theme.name : theme.id);
         }
         if (msg?.transfer) {
-            const amount = formatMoney(msg.transfer.amount, msg.transfer.currency);
+            const amount = formatMoney(msg.transfer.amount, msg.transfer.currency, L.locale);
             const note = String(msg.transfer.note || '').trim();
             const to = String(msg.transfer.to_name || msg.transfer.to || '').trim();
-            const dir = msg.sender === 'user'
-                ? `игрок перевёл ${amount}${to ? ` получателю ${to}` : ''}`
-                : `вам перевели ${amount}`;
-            return `[денежный перевод: ${dir}${note ? `, комментарий: «${note}»` : ''}]`;
+            const dir = msg.sender === 'user' ? c.transferOut(amount, to) : c.transferIn(amount);
+            return c.transfer(dir, note);
         }
         if (msg?.musicShare?.tracks?.length) {
-            const who = msg.sender === 'user' ? 'игрок' : 'вы';
+            const fromUser = msg.sender === 'user';
             const list = msg.musicShare.tracks.join(', ');
             return msg.musicShare.playlistName
-                ? `[${who} собрали плейлист «${msg.musicShare.playlistName}»: ${list}]`
-                : `[${who} поделились треком: ${list}]`;
+                ? c.playlistShared(fromUser, msg.musicShare.playlistName, list)
+                : c.trackShared(fromUser, list);
         }
         const text = String(msg?.text || '').trim();
         if (!msg?.image) return text;
         // Полный промпт, а не «прикреплено изображение» без подробностей: модель,
         // читающая саммари в основном чате, иначе не знает, что именно на фото
         const imagePrompt = String(msg.imagePrompt || '').trim().replace(/\s+/g, ' ');
-        if (imagePrompt) {
-            return text ? `${text} [прикреплено изображение: ${imagePrompt}]` : `[прислал(а) изображение: ${imagePrompt}]`;
-        }
-        return text ? `${text} [прикреплено изображение]` : '[прислал(а) изображение]';
+        return text ? c.imageInText(text, imagePrompt) : c.imageOnly(imagePrompt);
     }
 
     /**
@@ -6562,10 +6591,10 @@ sketch or construction lines.`,
         return DEFAULT_CURRENCY;
     }
 
-    function formatMoney(amount, currency = DEFAULT_CURRENCY) {
+    function formatMoney(amount, currency = DEFAULT_CURRENCY, locale = 'ru-RU') {
         const value = Math.max(0, Math.round(Number(amount) || 0));
         const symbol = NOVA_CURRENCIES.find(c => c.code === currency)?.symbol || currency;
-        return `${value.toLocaleString('ru-RU')} ${symbol}`;
+        return `${value.toLocaleString(locale)} ${symbol}`;
     }
 
     // Перевод рисуем карточкой, а не текстом — это отдельное событие, а не реплика
@@ -6808,8 +6837,9 @@ sketch or construction lines.`,
             const text = String(post.text || '').replace(/\s+/g, ' ').trim();
             if (!text) continue;
             const isUser = normHandle(post.handle) === normHandle(userHandle);
-            const image = post.image ? ' [с изображением]' : '';
-            lines.push(`${isUser ? '>>> ПОСТ ИГРОКА' : post.handle}: ${text.slice(0, 200)}${image}`);
+            const image = post.image ? ' [with image]' : '';
+            // Маркер должен дословно совпадать с тем, на который ссылается промпт ЛС
+            lines.push(`${isUser ? ">>> PLAYER'S POST" : post.handle}: ${text.slice(0, 200)}${image}`);
         }
         return lines.join('\n');
     }
@@ -6888,21 +6918,15 @@ sketch or construction lines.`,
             : null;
 
         const activeProfiles = getActiveProfiles();
-        const userProfile = activeProfiles.find(ap => ap.isUser) || { name: 'Вы', handle: '@user', desc: '' };
-        const userInfo = `${userProfile.name} (${userProfile.handle}) - ЭТО ПОЛЬЗОВАТЕЛЬ, С КОТОРЫМ ВЫ ПЕРЕПИСЫВАЕТЕСЬ. ${userProfile.desc || ''}`;
+        const userProfile = activeProfiles.find(ap => ap.isUser) || { name: 'User', handle: '@user', desc: '' };
+        const userInfo = `${userProfile.name} (${userProfile.handle}) — THIS IS THE USER YOU ARE TEXTING. ${userProfile.desc || ''}`;
         
         let profileInfo = '';
         let prompt = '';
 
         if (thread.isGroup) {
             const participantsProfiles = activeProfiles.filter(p => thread.participants.includes(p.handle));
-            profileInfo = participantsProfiles.map(p => {
-                if (p.type === 'npc') {
-                    return `${p.name} (${p.handle}): ${p.desc} | Стиль: ${p.style}`;
-                } else {
-                    return `${p.name} (${p.handle}): Персонаж из текущего чата.`;
-                }
-            }).join('\n\n');
+            profileInfo = participantsProfiles.map(p => promptProfileLine(p)).join('\n\n');
 
             const messageHistory = recentDMMessages(thread).map(m => {
                 const senderName = m.sender === 'user' ? userProfile.handle : (m.sender_handle || m.sender);
@@ -6914,15 +6938,9 @@ sketch or construction lines.`,
         } else {
             const profile = activeProfiles.find(ap => ap.handle.toLowerCase() === thread.handle.toLowerCase());
             
-            if (profile) {
-                if (profile.type === 'npc') {
-                    profileInfo = `${profile.name} (${profile.handle}): ${profile.desc} | Стиль: ${profile.style}`;
-                } else {
-                    profileInfo = `${profile.name} (${profile.handle}): Персонаж из текущего чата — характер и стиль общения определяется его картой персонажа.`;
-                }
-            } else {
-                profileInfo = `${thread.name} (${thread.handle}): Неизвестный профиль.`;
-            }
+            profileInfo = profile
+                ? promptProfileLine(profile)
+                : `${thread.name} (${thread.handle}): Unknown profile.`;
 
             const messageHistory = recentDMMessages(thread).map(m => {
                 return `${m.sender === 'user' ? userProfile.handle : thread.handle}: ${describeDMMessage(m)}`;
@@ -7161,15 +7179,7 @@ sketch or construction lines.`,
             return;
         }
 
-        const profilesInfo = activeProfiles.map(p => {
-            if (p.type === 'npc') {
-                return `- ${p.name} (${p.handle}): ${p.desc} | Стиль: ${p.style}`;
-            } else if (p.isUser) {
-                return `- ${p.name} (${p.handle}): [ИГРОК / ЮЗЕР] КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО генерировать посты или сообщения от этого лица.`;
-            } else {
-                return `- ${p.name} (${p.handle}): Персонаж из текущего чата — характер и стиль постов определяется его картой персонажа выше.`;
-            }
-        }).join('\n');
+        const profilesInfo = activeProfiles.map(p => promptProfileLine(p, { bullet: true })).join('\n');
 
         const chatContext = await getChatContext();
         const userHandle = activeProfiles.find(ap => ap.isUser)?.handle || '@user';
@@ -7607,6 +7617,17 @@ sketch or construction lines.`,
             toastr.success("Размер пересказа: " + label);
         });
 
+        // Сохраняем сразу, не дожидаясь «Сохранить настройки»: промпты читают язык
+        // из настроек на каждый запрос, и забытое сохранение молча оставило бы
+        // следующую генерацию на старом языке
+        $('#nova-rp-language').on('change', function() {
+            const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();
+            if (!extensionSettings.NOVA) extensionSettings.NOVA = {};
+            extensionSettings.NOVA.rp_language = $(this).val();
+            saveSettingsDebounced();
+            toastr.success("Язык ролевой: " + $(this).find('option:selected').text());
+        });
+
         $('#nova-refresh-proxy-btn').on('click', (e) => {
             e.preventDefault();
             refreshConnectionProfiles();
@@ -7639,11 +7660,13 @@ sketch or construction lines.`,
                 }
                 if (matches[subindex]) {
                     // Подпись берём из самого блока: правка не должна превращать
-                    // дословную переписку в пересказ и наоборот
-                    const kind = CONTEXT_KINDS[contextKindByLabel(matches[subindex][1])];
+                    // дословную переписку в пересказ и наоборот — и не должна молча
+                    // переводить подпись на другой язык, если ролевую успели переключить
+                    const originalLabel = matches[subindex][1];
+                    const kind = CONTEXT_KINDS[contextKindByLabel(originalLabel)];
                     stContext.chat[index].mes = stContext.chat[index].mes.replace(
                         matches[subindex][0],
-                        `\n<span class="nova-hidden-context" style="display:none;" title="NOVA Context">[${kind.label}: ${sanitizeContextPayload(newText)}]</span>\n`
+                        `\n<span class="nova-hidden-context" style="display:none;" title="NOVA Context">[${originalLabel}: ${sanitizeContextPayload(newText)}]</span>\n`
                     );
                     stContext.saveChat();
                     if (typeof stContext.updateChatUI === 'function') stContext.updateChatUI();
@@ -7732,7 +7755,8 @@ sketch or construction lines.`,
             extensionSettings.NOVA.include_persona = $('#nova-include-user-persona').is(':checked');
             extensionSettings.NOVA.include_lorebooks = $('#nova-include-world-info').is(':checked');
             extensionSettings.NOVA.include_author_note = $('#nova-include-author-note').is(':checked');
-            
+            extensionSettings.NOVA.rp_language = $('#nova-rp-language').val() || 'ru';
+
             saveSettingsDebounced();
             toastr.success("Настройки NOVA сохранены");
         });
@@ -9039,7 +9063,8 @@ sketch or construction lines.`,
             $('#nova-include-world-info').prop('checked', extensionSettings.NOVA.include_lorebooks);
         }
         $('#nova-include-author-note').prop('checked', extensionSettings.NOVA.include_author_note !== false);
-        
+        $('#nova-rp-language').val(extensionSettings.NOVA.rp_language === 'en' ? 'en' : 'ru');
+
         console.log(`[NOVA] Loaded ${profileNames.length} connection profiles.`);
     }
 
@@ -10748,10 +10773,8 @@ sketch or construction lines.`,
      */
     async function reassessRelationship(profile) {
         const chatContext = await getChatContext();
-        const userProfile = getActiveProfiles().find(p => p.isUser) || { handle: '@user', name: 'Вы' };
-        const profileInfo = profile.type === 'npc'
-            ? `${profile.name} (${profile.handle}): ${profile.desc || ''} | Стиль: ${profile.style || ''}`
-            : `${profile.name} (${profile.handle}): персонаж из текущего чата — характер и история определяются его картой персонажа.`;
+        const userProfile = getActiveProfiles().find(p => p.isUser) || { handle: '@user', name: 'User' };
+        const profileInfo = promptProfileLine(profile);
 
         const prompt = NovaPrompts.relationshipReassessPrompt(profileInfo, chatContext, userProfile.handle);
         const data = await callAIForJson(prompt, [], d => d && Number.isFinite(Number(d.affinity)), 'Модель не вернула оценку');

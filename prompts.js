@@ -3,7 +3,137 @@
  * All prompts are stored here for easy editing.
  */
 
+/**
+ * Язык ролевой: на каком языке модель пишет посты, сообщения, статусы и пересказ,
+ * и на каком языке NOVA вставляет события в сам чат.
+ *
+ * Сами инструкции всегда на английском — меняется только язык ВЫВОДА и примеры
+ * этого вывода. Всё, что зависит от языка, живёт здесь, в одном месте: и то, что
+ * уходит модели, и то, что index.js пишет прямо в чат (дословная вставка, пометки
+ * о переводах и картинках). Иначе половина текста переключится, а половина — нет.
+ */
+const RP_LANGUAGES = {
+    ru: {
+        code: 'ru',
+        NAME: 'RUSSIAN',
+        locale: 'ru-RU',
+        userWord: 'Пользователь',
+        playerWord: 'Игрок',
+        timeExamples: '"1м", "15м", or "2ч"',
+        timeShort: '1м',
+        nameNote: 'can be IN RUSSIAN OR ENGLISH',
+        statusExamples: '"настороженная симпатия", "давние друзья", "лучшие друзья", "бро", "влюблённость", "любовники", "заклятые враги", "как старшая сестра", "обиженное молчание"',
+        statusToneExamples: 'tender ("любовники, нежные и заботливые"), wholesome ("лучшие подруги не разлей вода"), bickering ("бро, вечно подкалывают друг друга"), formal-cold ("супруги, живут будто соседи")',
+        reassessStatusExamples: 'друзья, супруги, любовники, враги',
+        reassessToneExamples: '"супруги, нежные и заботливые" or "бро, вечно подкалывают друг друга"',
+        playlistExamples: '"Плейлист для тебя", "То, под что хочу с тобой засыпать"',
+        npcDescExample: '«Сестра Ло, та самая, что упоминалась в ссоре»',
+        summaryPronouns: '"you", "your", "I", "my", "вы", "вам", "ты", "мне"',
+        stranger: 'незнакомец из соцсети',
+        summaryExample: user => `В соцсети Кенто опубликовал новое фото. В личных сообщениях Юки написала ${user}, предложив встретиться, и ${user} согласился.`,
+
+        // То, что index.js пишет прямо в чат РП или в историю переписки для модели
+        chat: {
+            units: { justNow: 'только что', minute: 'м', hour: 'ч', day: 'д', week: 'нед' },
+            ago: age => `${age} назад`,
+            replyFrom: label => `↳ ответ ${label}`,
+            imageAttached: prompt => prompt ? `прикреплено изображение: ${prompt}` : 'прикреплено изображение',
+            groupChat: (name, members) => `Групповая беседа «${name}»${members ? ` — участники: ${members}` : ''}:`,
+            dmWith: label => `Переписка с ${label}:`,
+            transcriptIntro: 'Ниже — дословная выгрузка из соцсети NOVA, а не пересказ.',
+            threadTranscriptIntro: 'Ниже — дословная переписка из личных сообщений NOVA, а не пересказ.',
+            whoIsWho: 'КТО ЕСТЬ КТО (ники в соцсети не совпадают с именами):',
+            feed: 'ЛЕНТА:',
+            dms: 'ЛИЧНЫЕ СООБЩЕНИЯ:',
+            summaryLabel: 'События в соцсети',
+            transcriptLabel: 'Переписка в соцсети',
+            avatarAccepted: 'персонаж принял и уже сменил фото',
+            avatarDeclined: 'персонаж отклонил',
+            avatarPending: 'персонаж ещё не ответил',
+            avatarSuggested: status => `[юзер предложил фото на аватар профиля; ${status}]`,
+            wallpaperSet: '[юзер установил(а) новые обои в этой переписке]',
+            themeSet: name => `[юзер сменил(а) тему оформления переписки на «${name}»]`,
+            transferOut: (amount, to) => `игрок перевёл ${amount}${to ? ` получателю ${to}` : ''}`,
+            transferIn: amount => `вам перевели ${amount}`,
+            transfer: (dir, note) => `[денежный перевод: ${dir}${note ? `, комментарий: «${note}»` : ''}]`,
+            // Раньше «игрок/вы» подставлялись в одну форму — выходило «игрок собрали»
+            playlistShared: (fromUser, name, list) => `[${fromUser ? 'игрок собрал(а)' : 'вы собрали'} плейлист «${name}»: ${list}]`,
+            trackShared: (fromUser, list) => `[${fromUser ? 'игрок поделился(ась)' : 'вы поделились'} треком: ${list}]`,
+            imageInText: (text, prompt) => `${text} [прикреплено изображение${prompt ? `: ${prompt}` : ''}]`,
+            imageOnly: prompt => `[прислал(а) изображение${prompt ? `: ${prompt}` : ''}]`,
+        },
+    },
+    en: {
+        code: 'en',
+        NAME: 'ENGLISH',
+        locale: 'en-US',
+        userWord: 'User',
+        playerWord: 'the player',
+        timeExamples: '"1m", "15m", or "2h"',
+        timeShort: '1m',
+        nameNote: 'any name that fits the setting',
+        statusExamples: '"cautious liking", "old friends", "best friends", "bro", "crush", "lovers", "sworn enemies", "like a big sister", "hurt silence"',
+        statusToneExamples: 'tender ("lovers, gentle and caring"), wholesome ("best friends, joined at the hip"), bickering ("bros, always roasting each other"), formal-cold ("married, living like roommates")',
+        reassessStatusExamples: 'friends, spouses, lovers, enemies',
+        reassessToneExamples: '"married, gentle and caring" or "bros, always roasting each other"',
+        playlistExamples: '"A playlist for you", "What I want to fall asleep to with you"',
+        npcDescExample: '"Law\'s sister — the one who came up during the fight"',
+        summaryPronouns: '"you", "your", "I", "my"',
+        stranger: 'a stranger from the social feed',
+        summaryExample: user => `On the social feed, Kento posted a new photo. In private messages, Yuki texted ${user} suggesting they meet up, and ${user} agreed.`,
+
+        chat: {
+            units: { justNow: 'just now', minute: 'm', hour: 'h', day: 'd', week: 'w' },
+            ago: age => `${age} ago`,
+            replyFrom: label => `↳ reply from ${label}`,
+            imageAttached: prompt => prompt ? `image attached: ${prompt}` : 'image attached',
+            groupChat: (name, members) => `Group chat "${name}"${members ? ` — members: ${members}` : ''}:`,
+            dmWith: label => `Private chat with ${label}:`,
+            transcriptIntro: 'Below is a verbatim export from the NOVA social feed, not a summary.',
+            threadTranscriptIntro: 'Below is a verbatim export of a NOVA private chat, not a summary.',
+            whoIsWho: 'WHO IS WHO (social media handles are not the same as names):',
+            feed: 'FEED:',
+            dms: 'PRIVATE MESSAGES:',
+            summaryLabel: 'Social media events',
+            transcriptLabel: 'Social media transcript',
+            avatarAccepted: 'the character accepted and already changed their photo',
+            avatarDeclined: 'the character declined',
+            avatarPending: 'the character has not answered yet',
+            avatarSuggested: status => `[the user suggested a new profile photo; ${status}]`,
+            wallpaperSet: '[the user set a new wallpaper for this chat]',
+            themeSet: name => `[the user changed this chat's theme to "${name}"]`,
+            transferOut: (amount, to) => `the player sent ${amount}${to ? ` to ${to}` : ''}`,
+            transferIn: amount => `you received ${amount}`,
+            transfer: (dir, note) => `[money transfer: ${dir}${note ? `, note: "${note}"` : ''}]`,
+            playlistShared: (fromUser, name, list) => `[${fromUser ? 'the player' : 'you'} shared a playlist "${name}": ${list}]`,
+            trackShared: (fromUser, list) => `[${fromUser ? 'the player' : 'you'} shared a track: ${list}]`,
+            imageInText: (text, prompt) => `${text} [image attached${prompt ? `: ${prompt}` : ''}]`,
+            imageOnly: prompt => `[sent an image${prompt ? `: ${prompt}` : ''}]`,
+        },
+    },
+};
+
+const DEFAULT_RP_LANGUAGE = 'ru';
+
+/** Текущий язык ролевой — читается из настроек на каждый вызов, чтобы не рассинхронизироваться. */
+function rp() {
+    const code = globalThis.SillyTavern?.getContext?.()?.extensionSettings?.NOVA?.rp_language;
+    return RP_LANGUAGES[code] || RP_LANGUAGES[DEFAULT_RP_LANGUAGE];
+}
+
 export const NovaPrompts = {
+
+    /** Языковой пакет текущей ролевой — index.js берёт отсюда всё, что пишет в чат. */
+    rp,
+
+    /** Все подписи блоков в чате на всех языках: блок, вставленный на одном языке, должен находиться и после переключения. */
+    allContextLabels() {
+        return Object.values(RP_LANGUAGES).flatMap(l => [l.chat.summaryLabel, l.chat.transcriptLabel]);
+    },
+
+    isTranscriptLabel(label) {
+        return Object.values(RP_LANGUAGES).some(l => l.chat.transcriptLabel === label);
+    },
 
     /**
      * Блок про фотографии для промптов ленты и личных сообщений.
@@ -24,6 +154,7 @@ export const NovaPrompts = {
      */
     imageInstructionBlock({ maxImages = 0, target = 'feed', allowedHandles = '', protocol = '', style = '', withReferences = false } = {}) {
         if (!maxImages || maxImages < 1) return '';
+        const L = rp();
 
         const where = target === 'dm'
             ? 'A message object may carry a photo.'
@@ -48,7 +179,7 @@ ${where} STRICT FORMAT — this part is fixed and not up for interpretation:
 - "style" is OPTIONAL — leave it "" to use the app's own configured visual style automatically. Only fill it in when THIS specific photo needs to look different from the usual style (e.g. a drawing, an old photograph, a screenshot).
 - "prompt" is ENGLISH, one dense paragraph, no line breaks, no URLs, no file paths, no markdown. It is handed to an image generator that sees NOTHING else — not this post, not the chat, not the character cards.
 - Equivalent alternative: instead of the tag, put the field "image_prompt": "..." on the object. Use ONE of the two, never both.
-- The object's own "text" stays IN RUSSIAN and reads like a caption next to the photo, never a description of it.
+- The object's own "text" stays IN ${L.NAME} and reads like a caption next to the photo, never a description of it.
 - AT MOST ${maxImages} object${maxImages === 1 ? '' : 's'} in this whole response may carry a photo. Anything beyond that is dropped.
 - No photo to send right now — no tag and no field. An empty or placeholder value is a FAILURE.
 ${appearance}${allowedHandles ? `
@@ -80,6 +211,7 @@ ${style}` : ''}`;
      */
     relationshipInstructionBlock({ trackedHandles = '', newHandles = '', userHandle = '@user', target = 'feed' } = {}) {
         if (!trackedHandles) return '';
+        const L = rp();
         const relevance = target === 'dm'
             ? `This is a private DM, so almost every message from a tracked account here already counts as a reaction to ${userHandle} — the tag should usually be present (even with "affinity_delta":0) rather than skipped. Only skip it for something that isn't really a reaction at all, like a lone sticker or a system-style notice.`
             : target === 'feed-reaction'
@@ -89,12 +221,12 @@ ${style}` : ''}`;
 
 RELATIONSHIP TRACKING (only for these accounts, and only when it genuinely applies): ${trackedHandles}
 When an object above is written BY one of these accounts AND it is a direct reaction to ${userHandle} — a reply to something ${userHandle} said or did, a DM to them, a post clearly about them — add a hidden tag at the very END of that object's own "text" (same rule as the photo tag: removed before the post is shown, never mentioned in the visible text itself):
-<span data-nova-relationship='{\\"affinity_delta\\":0,\\"status\\":\\"\\",\\"reaction\\":\\"[ONE SHORT SENTENCE, RUSSIAN]\\"}'></span>
+<span data-nova-relationship='{\\"affinity_delta\\":0,\\"status\\":\\"\\",\\"reaction\\":\\"[ONE SHORT SENTENCE, ${L.NAME}]\\"}'></span>
 - This tag lives INSIDE a JSON string value (the object's own "text" field) — every double quote inside it MUST be backslash-escaped (\\") exactly like the example above, or the whole response becomes invalid JSON and gets thrown away entirely.
 - ${relevance}
 - "affinity_delta": a NUMBER from -10 to 10, with up to ONE decimal place (0.5, -1.5, 3, -7 are all valid), how THIS exchange shifted their feelings toward ${userHandle}. 0 is a completely normal, common answer — most small talk, routine replies, or reactions that are worth a line but don't actually move the needle should get 0. Do NOT invent movement just to have a non-zero number. Use a fractional value (±0.5, ±1.5) for something that barely registers but isn't quite nothing — a small wave of your existing whole-number scale, not a separate category. Keep real whole-number swings small (±1 to ±3) too; reserve ±7 to ±10 for a genuinely major moment (betrayal, huge favor, confession).
-- "status": OPTIONAL, one short phrase in RUSSIAN capturing the relationship right now — not just HOW STRONG it is, but what KIND it actually is. Romance, rivalry, family-like bonds, mentorship — whatever the story has actually built, not only degrees of friendship (e.g. "настороженная симпатия", "давние друзья", "лучшие друзья", "бро", "влюблённость", "любовники", "заклятые враги", "как старшая сестра", "обиженное молчание"). Fill it in only when it's worth being more specific than the raw number; otherwise leave it "". Unlike "reaction" below, this is a stable label for what they ARE to each other — it should persist across many exchanges, not get rewritten on every single tag. Feel free to colour the label with the actual TONE of the dynamic instead of leaving it a flat, one-word category that never changes — нежно/tender ("любовники, нежные и заботливые"), мило/wholesome ("лучшие подруги не разлей вода"), комедия/bickering ("бро, вечно подкалывают друг друга"), сухо/formal-cold ("супруги, живут будто соседи") are all fair game when that's genuinely how it plays out.
-- "reaction": ONE short sentence in RUSSIAN, in the character's own voice — how they feel about ${userHandle} right now, not a summary of the scene. Can be funny, petty, warm, sarcastic — whatever actually fits the character.${newHandles ? `
+- "status": OPTIONAL, one short phrase in ${L.NAME} capturing the relationship right now — not just HOW STRONG it is, but what KIND it actually is. Romance, rivalry, family-like bonds, mentorship — whatever the story has actually built, not only degrees of friendship (e.g. ${L.statusExamples}). Fill it in only when it's worth being more specific than the raw number; otherwise leave it "". Unlike "reaction" below, this is a stable label for what they ARE to each other — it should persist across many exchanges, not get rewritten on every single tag. Feel free to colour the label with the actual TONE of the dynamic instead of leaving it a flat, one-word category that never changes — ${L.statusToneExamples} are all fair game when that's genuinely how it plays out.
+- "reaction": ONE short sentence in ${L.NAME}, in the character's own voice — how they feel about ${userHandle} right now, not a summary of the scene. Can be funny, petty, warm, sarcastic — whatever actually fits the character.${newHandles ? `
 
 FIRST-TIME CALIBRATION for these accounts specifically (no relationship data recorded for them yet): ${newHandles}
 On THEIR first tagged reaction, don't treat them as if meeting ${userHandle} for the first time — look at everything already established between them and ${userHandle} in this roleplay so far (history, how they already talk to each other, any existing dynamic) and add one more field to the tag: "affinity_estimate", an absolute integer 0-100 for where things realistically stand RIGHT NOW (50 = neutral strangers, 80+ = established friends or more, 20 or below = real hostility). This is a one-time starting point, not a delta — do this only the first time each of these accounts gets tagged, never again after.` : ''}`;
@@ -111,6 +243,7 @@ On THEIR first tagged reaction, don't treat them as if meeting ${userHandle} for
      * @param {string} userHandle — хэндл пользователя, к которому оценивается симпатия
      */
     relationshipReassessPrompt(profileInfo, chatContext, userHandle) {
+        const L = rp();
         return `You are analyzing a roleplay to assess a relationship. The character being assessed:
 ${profileInfo}
 
@@ -120,7 +253,7 @@ ${chatContext}
 TASK: Based on EVERYTHING established above between this character and ${userHandle} — their history, how they actually talk to each other, any explicit relationship stated in the character card or scenario (spouse, sibling, rival, complete stranger, etc.) — assess where their relationship realistically stands RIGHT NOW. This replaces whatever number is currently stored, so be accurate rather than conservative.
 
 Output ONLY this JSON object, nothing before or after it:
-{"affinity": [integer 0-100, where 50 = neutral strangers, 80+ = established closeness or more, 20 or below = real hostility], "status": "[one short phrase in RUSSIAN naming what they ARE to each other right now — друзья, супруги, любовники, враги, etc. — or empty string if truly nothing is established yet. Colour it with the actual tone of the dynamic rather than a flat one-word category: нежно/tender, мило/wholesome, комедия/bickering, сухо/formal-cold — whichever genuinely fits, e.g. \"супруги, нежные и заботливые\" or \"бро, вечно подкалывают друг друга\"]", "reason": "[ONE short sentence in RUSSIAN explaining the estimate, in plain narration, not in character]"}`;
+{"affinity": [integer 0-100, where 50 = neutral strangers, 80+ = established closeness or more, 20 or below = real hostility], "status": "[one short phrase in ${L.NAME} naming what they ARE to each other right now — ${L.reassessStatusExamples}, etc. — or empty string if truly nothing is established yet. Colour it with the actual tone of the dynamic rather than a flat one-word category: tender, wholesome, bickering, formal-cold — whichever genuinely fits, e.g. ${L.reassessToneExamples}]", "reason": "[ONE short sentence in ${L.NAME} explaining the estimate, in plain narration, not in character]"}`;
     },
 
     /**
@@ -145,13 +278,14 @@ Put a hidden tag at the very END of your reply's "text" (removed before the mess
      * треком/плейлистом, а не просто упоминает музыку в разговоре.
      */
     musicInstructionBlock({ recentTracks = '' } = {}) {
+        const L = rp();
         return `
 
 MUSIC (MoodTube is connected — a character can queue up a real track to actually play): when it genuinely fits — a character is DJing, sharing a song that matches their mood, sending a track to someone — add a hidden tag at the very END of that object's own "text" (removed before the post is shown, never mentioned in the visible text itself):
 <span data-nova-music='{\\"tracks\\":[\\"Artist - Song Title\\"],\\"playlist_name\\":\\"\\",\\"note\\":\\"\\"}'></span>
 - "tracks": real search queries, each as "Artist - Title" (or a clear title/mood phrase if there's no clean artist match). These are handed to an actual music player — keep them accurate and searchable, not vague or invented nonsense.
-- "playlist_name": OPTIONAL, in RUSSIAN, in the character's own words (e.g. "Плейлист для тебя", "То, под что хочу с тобой засыпать") — fill this in ONLY when the character is deliberately sharing a curated PLAYLIST, not a single song. When "playlist_name" is filled in, "tracks" must have 5 to 20 real songs. When it's an ordinary one-or-a-few-song share, leave "playlist_name" "" and keep "tracks" to 1-4.
-- "note": OPTIONAL, one short phrase in RUSSIAN on why this fits right now — leave "" if the visible text already makes it obvious. Skip it when "playlist_name" is filled in and the visible text already explains the playlist.
+- "playlist_name": OPTIONAL, in ${L.NAME}, in the character's own words (e.g. ${L.playlistExamples}) — fill this in ONLY when the character is deliberately sharing a curated PLAYLIST, not a single song. When "playlist_name" is filled in, "tracks" must have 5 to 20 real songs. When it's an ordinary one-or-a-few-song share, leave "playlist_name" "" and keep "tracks" to 1-4.
+- "note": OPTIONAL, one short phrase in ${L.NAME} on why this fits right now — leave "" if the visible text already makes it obvious. Skip it when "playlist_name" is filled in and the visible text already explains the playlist.
 - This is RARE — most posts and messages have nothing to do with music. Only use it when a character is genuinely sharing or playing something, never as background commentary. A full named playlist is rarer still than a single-track share — most music moments are just one song.
 - PICK THE TRACK FROM THE CHARACTER, not from what's statistically obvious. Base it on THIS character's actual taste, era, mood, culture, or the scene's specific vibe (their card, their established interests, what they'd realistically have on their phone) — not the single most famous song of a genre that any model would default to, and NOT the same reflex pick ("Do I Wanna Know?" by Arctic Monkeys, or any other overused go-to) every character seems to reach for. Two different characters should essentially never land on the same song unless the scene explicitly calls for it (e.g. one is directly reacting to what the other just sent).${recentTracks ? `
 - ALREADY SHARED IN THIS STORY — do not pick any of these again, they are used up: ${recentTracks}` : ''}`;
@@ -218,6 +352,7 @@ Two things are required of you:
      * @param {string} imageInstruction — блок про фото, см. imageInstructionBlock()
      */
     generateFeed(profilesInfo, chatContext, userPostText = null, userHandle = '@user', recentDMsContext = '', recentPostsContext = '', hasUserImage = false, imageInstruction = '') {
+        const L = rp();
         const imageNote = hasUserImage
             ? `\nThe user attached an IMAGE to this post — it is included in this request. React to what is ACTUALLY visible in it: reply to the picture, not to a generic idea of one. Do not describe the image back; respond to it the way people reply to a photo online.`
             : '';
@@ -227,7 +362,7 @@ Two things are required of you:
         // отдельный запрос, а ещё одно поле в уже идущем. Показывается той же кнопкой
         // «промпт» у картинки, что и для сгенерированных фото.
         const captionField = hasUserImage
-            ? `, "image_caption": "one SHORT sentence in RUSSIAN describing what is actually in the photo — for the user's own reference, not shown to characters"`
+            ? `, "image_caption": "one SHORT sentence in ${L.NAME} describing what is actually in the photo — for the user's own reference, not shown to characters"`
             : '';
 
         const actionSection = userPostText || hasUserImage
@@ -239,11 +374,11 @@ EXCEPTION TO THE RULE: You MUST output the User's post as the FIRST item in the 
 Your goal is to create a LIVE, IMMERSIVE, and DYNAMIC feed that reflects the ongoing story events.
 
 CRITICAL INSTRUCTIONS:
-- ALL GENERATED TEXT (posts, messages) MUST BE IN RUSSIAN LANGUAGE.
+- ALL GENERATED TEXT (posts, messages) MUST BE IN ${L.NAME} LANGUAGE.
 - You MUST ACTIVELY USE characters from the chat and NPCs from the list below.
 - Characters from the current chat MUST be at the center of events if something important is happening in the RP.
 - DO NOT generate posts or DMs on behalf of the USER / PLAYER. The user writes their own posts. Never use the User's handle in "author_handle".
-- IMPORTANT: "Пользователь" (or whatever name is set in the User's profile) refers to ME — the real, active participant in this roleplay whom the characters are addressing. Treat my actions as those of a full participant in the story, not a passive observer.
+- IMPORTANT: "${L.userWord}" (or whatever name is set in the User's profile) refers to ME — the real, active participant in this roleplay whom the characters are addressing. Treat my actions as those of a full participant in the story, not a passive observer.
 - Mix different tones: shitposting, drama, reactions to RP events, personal thoughts, interactions (replies/quotes).
 - Posts must REFLECT THE PERSONALITY of the character according to their character card and the current scene.
 
@@ -300,14 +435,14 @@ STRICT JSON FORMAT:
     "posts": [
         { 
             "author_handle": "@handle", 
-            "text": "Post content IN RUSSIAN. Match the character's personality/style. DO NOT use hashtags unless it is deeply ingrained in the character's core personality. Do not spam tags.", 
-            "likes": number, 
-            "retweets": number, 
-            "time": "1м", "15м", or "2ч",
+            "text": "Post content IN ${L.NAME}. Match the character's personality/style. DO NOT use hashtags unless it is deeply ingrained in the character's core personality. Do not spam tags.",
+            "likes": number,
+            "retweets": number,
+            "time": ${L.timeExamples},
             "replies": [
                 {
                     "author_handle": "@reply_handle",
-                    "text": "Reply text IN RUSSIAN",
+                    "text": "Reply text IN ${L.NAME}",
                     "likes": number,
                     "time": "...",
                     "replies": [
@@ -320,7 +455,7 @@ STRICT JSON FORMAT:
     "dm": {
         "author_handle": "@handle",
         "group_handle": "@group_xxxx or omit",
-        "text": "A private message IN RUSSIAN. Must make sense in the context of recent DMs. Or null if no DM."
+        "text": "A private message IN ${L.NAME}. Must make sense in the context of recent DMs. Or null if no DM."
     }
 }
 
@@ -350,14 +485,15 @@ FINAL CHECK BEFORE YOU OUTPUT — non-negotiable:
      * @param {string} relationshipInstruction — блок про симпатию, см. relationshipInstructionBlock()
      */
     generateFeedReply(profilesInfo, chatContext, originalPostText, userReplyText, targetHandle, userHandle = '@user', relationshipInstruction = '') {
+        const L = rp();
         return `You are the core engine of the "NOVA" social media simulation inside a Roleplay universe.
 Your goal is to simulate how characters would react to the User's reply.
 
 CRITICAL INSTRUCTIONS:
-- ALL GENERATED TEXT MUST BE IN RUSSIAN LANGUAGE.
+- ALL GENERATED TEXT MUST BE IN ${L.NAME} LANGUAGE.
 - DO NOT generate posts on behalf of the USER / PLAYER (${userHandle}).
 - You MUST ACTIVELY USE characters from the chat and NPCs from the list below.
-- IMPORTANT: "Пользователь" (User) refers to the real person playing this roleplay. Treat their actions as those of a full participant in the story.
+- IMPORTANT: "${L.userWord}" (User) refers to the real person playing this roleplay. Treat their actions as those of a full participant in the story.
 
 CURRENT RP CONTEXT:
 ${chatContext}
@@ -386,14 +522,14 @@ STRICT JSON FORMAT:
     "posts": [
         { 
             "author_handle": "@handle", 
-            "text": "Post content IN RUSSIAN", 
-            "likes": number, 
-            "retweets": number, 
-            "time": "1м",
+            "text": "Post content IN ${L.NAME}",
+            "likes": number,
+            "retweets": number,
+            "time": "${L.timeShort}",
             "replies": [
                 {
                     "author_handle": "@reply_handle",
-                    "text": "Reply text IN RUSSIAN",
+                    "text": "Reply text IN ${L.NAME}",
                     "likes": number,
                     "time": "...",
                     "replies": [
@@ -422,6 +558,7 @@ INSTRUCTIONS:
      *   вывода — так оно перебивает общие правила, не ломая контракт JSON.
      */
     generateNPCFolder(chatContext, note = '') {
+        const L = rp();
         const noteBlock = String(note || '').trim() ? `
 
 DIRECT INSTRUCTION FROM THE PLAYER — this is an out-of-character request about the NPCs you are about to create. It OVERRIDES the general guidance above wherever they disagree (how many NPCs, who they should be, their tone, the theme of the folder). Follow it literally, but keep the output format and the language rules intact:
@@ -445,19 +582,19 @@ STEP 2 — ONLY THEN invent. If the harvest gives you fewer than 5 people, inven
 A folder made only of invented characters, ignoring people the RP already mentioned, is a FAILURE.
 They should feel alive, slightly chaotic/toxic, and have a Twitter-like posting style.
 
-IMPORTANT: ALL GENERATED TEXT (folder name, NPC names, descriptions, styles) MUST BE IN RUSSIAN LANGUAGE (except handles and seeds).
+IMPORTANT: ALL GENERATED TEXT (folder name, NPC names, descriptions, styles) MUST BE IN ${L.NAME} LANGUAGE (except handles and seeds).
 OUTPUT ONLY VALID JSON. No conversational text. Do not use real human faces for avatars.
 
 CURRENT RP CONTEXT:
 ${chatContext}
 
 INSTRUCTIONS:
-1. "folder_name": A thematic name for this group of NPCs IN RUSSIAN, directly related to the current story and characters.
+1. "folder_name": A thematic name for this group of NPCs IN ${L.NAME}, directly related to the current story and characters.
 2. "npcs": An array of NPC objects. Generate as many as appropriate for the context (from 3 to 10).
-   - "name": Character's name (can be IN RUSSIAN OR ENGLISH). Must logically fit the country and setting.
+   - "name": Character's name (${L.nameNote}). Must logically fit the country and setting.
    - "handle": Username starting with @ (STRICTLY LATIN LETTERS).
-   - "desc": A short description of who they are and what they post IN RUSSIAN. For a harvested person, STATE THEIR CONNECTION explicitly — who they are to the characters and what the RP said about them (e.g. «Сестра Ло, та самая, что упоминалась в ссоре»). For an invented one, tie them to the setting.
-   - "style": Their posting style IN RUSSIAN (e.g., "all caps, aggressive", "lots of emojis", "passive-aggressive").
+   - "desc": A short description of who they are and what they post IN ${L.NAME}. For a harvested person, STATE THEIR CONNECTION explicitly — who they are to the characters and what the RP said about them (e.g. ${L.npcDescExample}). For an invented one, tie them to the setting.
+   - "style": Their posting style IN ${L.NAME} (e.g., "all caps, aggressive", "lots of emojis", "passive-aggressive").
    - "seed": A single English word (e.g., "dragon", "neon", "cat", "knight") for avatar generation.
    - "color": A HEX color fitting this character (e.g., "#ff5733").${noteBlock}
 
@@ -478,6 +615,7 @@ OUTPUT FORMAT:
      * @param {string} userInfo — user info
      */
     generateDMReply(profileInfo, messageHistory, chatContext, userInfo, hasUserImage = false, feedContext = '', imageInstruction = '') {
+        const L = rp();
         const imageRule = hasUserImage
             ? '\n9. The user attached an IMAGE — it is included in this request. React to what is ACTUALLY in the picture, casually, the way someone reacts to a photo a friend sent. Do not narrate or describe it back.'
             : '';
@@ -486,7 +624,7 @@ OUTPUT FORMAT:
         // описание в том же ответе, бесплатно. Показывается кнопкой «промпт» у
         // картинки в переписке, как и у сгенерированных фото.
         const captionField = hasUserImage
-            ? `,\n    "image_caption": "one SHORT sentence in RUSSIAN describing what is actually in the photo the user sent — for the user's own reference, not shown to the character"`
+            ? `,\n    "image_caption": "one SHORT sentence in ${L.NAME} describing what is actually in the photo the user sent — for the user's own reference, not shown to the character"`
             : '';
 
         return `You are generating a private message (DM) reply for a fictional social network simulation.
@@ -507,7 +645,7 @@ ${feedContext ? `
 THE PUBLIC FEED RIGHT NOW (you follow this person and you HAVE seen these posts):
 ${feedContext}
 
--> Lines marked ">>> ПОСТ ИГРОКА" were posted by the person you are texting. You saw them.
+-> Lines marked ">>> PLAYER'S POST" were posted by the person you are texting. You saw them.
 -> React to them naturally when relevant: tease, agree, argue, ask about it, reference it in passing.
 -> NEVER ask about something they already said in a post as if you had not seen it.
 ` : ''}
@@ -529,11 +667,11 @@ Based on the history and the character's personality, write their NEXT response(
 STRICT JSON FORMAT:
 {
     "messages": [
-        "The character's first text IN RUSSIAN.",
-        "The character's second text IN RUSSIAN (optional)."
+        "The character's first text IN ${L.NAME}.",
+        "The character's second text IN ${L.NAME} (optional)."
     ]${captionField}
 }
-OPTIONAL: instead of a plain string, a message may be an object { "text": "...", "transfer": { "amount": number, "currency": "USD" | "EUR" | "RUB" | "GBP" | "CNY" | "JPY", "note": "short comment IN RUSSIAN" } } when the character is sending the user money — paying a debt back, chipping in, covering something.
+OPTIONAL: instead of a plain string, a message may be an object { "text": "...", "transfer": { "amount": number, "currency": "USD" | "EUR" | "RUB" | "GBP" | "CNY" | "JPY", "note": "short comment IN ${L.NAME}" } } when the character is sending the user money — paying a debt back, chipping in, covering something.
 CURRENCY: use the money people ACTUALLY use where this story takes place — euro in Germany or France, rouble in Russia, yen in Japan, yuan in China, pound in Britain, dollar in the US. Work it out from the RP context: the city, the country, the prices already mentioned. If the conversation has already named a currency, keep it. NEVER fall back to dollars just because they are common — a character in Berlin sending dollars is a mistake.
 Use a transfer ONLY when the conversation genuinely calls for it, never at random. With a transfer, "text" may be empty.
 NO MARKDOWN, NO OTHER TEXT, JUST VALID JSON.${imageInstruction}`;
@@ -543,11 +681,12 @@ NO MARKDOWN, NO OTHER TEXT, JUST VALID JSON.${imageInstruction}`;
      * Generate a Group DM reply.
      */
     generateGroupDMReply(profilesInfo, messageHistory, chatContext, userInfo, groupName, hasUserImage = false, feedContext = '', imageInstruction = '') {
+        const L = rp();
         const imageNote = hasUserImage
             ? `\n\nTHE USER JUST SENT AN IMAGE — it is attached to this request. Participants can SEE it. React to what is ACTUALLY in the picture, casually, the way a group chat reacts to a photo someone dropped. Different people notice different things. Do not narrate or describe the image back.`
             : '';
         const captionField = hasUserImage
-            ? `,\n    "image_caption": "one SHORT sentence in RUSSIAN describing what is actually in the photo the user sent — for the user's own reference, not shown to the group"`
+            ? `,\n    "image_caption": "one SHORT sentence in ${L.NAME} describing what is actually in the photo the user sent — for the user's own reference, not shown to the group"`
             : '';
 
         return `You are generating responses for a GROUP CHAT in a fictional social network simulation.
@@ -565,7 +704,7 @@ ${feedContext ? `
 THE PUBLIC FEED RIGHT NOW (everyone in this group follows it and HAS seen these posts):
 ${feedContext}
 
--> Lines marked ">>> ПОСТ ИГРОКА" were posted by the user. Everyone here saw them.
+-> Lines marked ">>> PLAYER'S POST" were posted by the user. Everyone here saw them.
 -> React to them naturally when relevant: tease, agree, argue, bring it up in the group.
 -> NEVER ask about something the user already said in a post as if nobody had seen it.
 ` : ''}
@@ -584,11 +723,11 @@ Based on the history and personalities, write the next message(s) in the group c
 STRICT JSON FORMAT:
 {
     "messages": [
-        { "sender_handle": "@handle_of_character_1", "text": "Message text IN RUSSIAN" },
-        { "sender_handle": "@handle_of_character_2", "text": "Another message IN RUSSIAN" }
+        { "sender_handle": "@handle_of_character_1", "text": "Message text IN ${L.NAME}" },
+        { "sender_handle": "@handle_of_character_2", "text": "Another message IN ${L.NAME}" }
     ]${captionField}
 }
-OPTIONAL: any message may also carry "transfer": { "amount": number, "currency": "USD" | "EUR" | "RUB" | "GBP" | "CNY" | "JPY", "note": "short comment IN RUSSIAN" } when the character is sending the user money — paying a debt back, chipping in, covering something.
+OPTIONAL: any message may also carry "transfer": { "amount": number, "currency": "USD" | "EUR" | "RUB" | "GBP" | "CNY" | "JPY", "note": "short comment IN ${L.NAME}" } when the character is sending the user money — paying a debt back, chipping in, covering something.
 CURRENCY: use the money people ACTUALLY use where this story takes place — euro in Germany or France, rouble in Russia, yen in Japan, yuan in China, pound in Britain, dollar in the US. Work it out from the RP context: the city, the country, the prices already mentioned. If the conversation has already named a currency, keep it. NEVER fall back to dollars just because they are common — a character in Berlin sending dollars is a mistake.
 Use a transfer ONLY when the conversation genuinely calls for it, never at random. With a transfer, "text" may be empty.
 NO MARKDOWN, NO OTHER TEXT, JUST VALID JSON.${imageInstruction}`;
@@ -600,17 +739,18 @@ NO MARKDOWN, NO OTHER TEXT, JUST VALID JSON.${imageInstruction}`;
      * @param {string} charDesc — character card (description, personality, etc.)
      */
     generateCharProfile(charName, charDesc) {
+        const L = rp();
         return `You are a creative AI. Your task is to create a social media profile (like Twitter) for a character from a roleplaying game.
-        
+
 CHARACTER NAME: ${charName}
 CHARACTER CARD:
 ${charDesc}
 
 Based on this character's personality and appearance, invent for them:
-1. "name": Display name for the profile (can be in Russian or English).
+1. "name": Display name for the profile (${L.nameNote}).
 2. "handle": Username (must start with @, ONLY LATIN LETTERS, no spaces). Must reflect their personality.
-3. "desc": A short profile "bio" (describing themselves) IN RUSSIAN. How would this character describe themselves on a social network?
-4. "style": Their posting style IN RUSSIAN (e.g.: "all caps, aggressive", "lots of emojis", "formal, uses complex vocabulary").
+3. "desc": A short profile "bio" (describing themselves) IN ${L.NAME}. How would this character describe themselves on a social network?
+4. "style": Their posting style IN ${L.NAME} (e.g.: "all caps, aggressive", "lots of emojis", "formal, uses complex vocabulary").
 
 OUTPUT ONLY VALID JSON.
 OUTPUT FORMAT:
@@ -622,7 +762,9 @@ OUTPUT FORMAT:
 }`;
     },
 
-    generateSocialMediaSummary(feedContext, dmContext, size = 'short', userName = 'Игрок', previousSummary = null, whoIsWho = '') {
+    generateSocialMediaSummary(feedContext, dmContext, size = 'short', userName = '', previousSummary = null, whoIsWho = '') {
+        const L = rp();
+        if (!userName) userName = L.playerWord;
         let sizeInstruction = '';
         if (size === 'short') {
             sizeInstruction = `1. Write a SHORT summary: 1-2 sentences, no more.
@@ -661,14 +803,14 @@ ${dmContext ? dmContext : "(No new private messages)"}
 
 INSTRUCTIONS:
 ${sizeInstruction}
-- STRICT RULE: Write in the THIRD PERSON ONLY. Do NOT use words like "you", "your", "I", "my", "вы", "вам", "ты", "мне". Use the character's exact name or "${userName}".
-- NEVER write a bare handle like "@user123" in the output. Replace every handle with the real name from WHO IS WHO. If a handle has no known name, describe the person as "незнакомец из соцсети".
+- STRICT RULE: Write in the THIRD PERSON ONLY. Do NOT use words like ${L.summaryPronouns}. Use the character's exact name or "${userName}".
+- NEVER write a bare handle like "@user123" in the output. Replace every handle with the real name from WHO IS WHO. If a handle has no known name, describe the person as "${L.stranger}".
 - Money transfers and attached images are real events: if one happened, say who sent what to whom.
 - IMPORTANT: "${userName}" refers to a real person taking part in this roleplay. Treat the characters as aware they are interacting with an actual participant, not a background element.
 - Do NOT invent events that are not in the data above.
 - This is injected as a system note.
-- OUTPUT ONLY THE TEXT SUMMARY IN RUSSIAN LANGUAGE. Do not output JSON. Do not use square brackets.
+- OUTPUT ONLY THE TEXT SUMMARY IN ${L.NAME} LANGUAGE. Do not output JSON. Do not use square brackets.
 
-Example of correct perspective (names here are placeholders): "В соцсети Кенто опубликовал новое фото. В личных сообщениях Юки написала ${userName}, предложив встретиться, и ${userName} согласился."`;
+Example of correct perspective (names here are placeholders): "${L.summaryExample(userName)}"`;
     }
 };
