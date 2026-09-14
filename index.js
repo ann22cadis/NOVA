@@ -8303,6 +8303,7 @@ sketch or construction lines.`,
             extensionSettings.NOVA.ui_language = $(this).val();
             saveSettingsDebounced();
             applyUiLanguageToStaticPanel();
+            $('#nova-options-button').attr('title', t('Открыть NOVA (Social Feed)'));
             toastr.success(t('Язык интерфейса') + ': ' + $(this).find('option:selected').text());
         });
 
