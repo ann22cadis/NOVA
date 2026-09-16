@@ -13,6 +13,7 @@
     --nova-inset: rgba(0, 0, 0, 0.2);
     --nova-header-bg: rgba(0, 0, 0, 0.65);
     --nova-dm-header-bg: rgba(21, 32, 43, 0.85);
+    --nova-tint-border: rgba(255, 255, 255, 0.2);
 }
 
 /* Светлая тема: атрибут ставится на <html>, чтобы задевать и то, что NOVA
@@ -22,8 +23,8 @@
     --nova-surface: #f7f9f9;
     --nova-surface-hover: #eaeff1;
     --nova-border: #cfd9de;
-    --nova-accent: #1d9bf0;
-    --nova-accent-hover: #1a8cd8;
+    --nova-accent: #0c7ac4;
+    --nova-accent-hover: #0a68a8;
     --nova-text: #0f1419;
     --nova-text-muted: #536471;
     --nova-tint: rgba(15, 20, 25, 0.06);
@@ -31,11 +32,34 @@
     --nova-inset: rgba(15, 20, 25, 0.04);
     --nova-header-bg: rgba(255, 255, 255, 0.85);
     --nova-dm-header-bg: rgba(247, 249, 249, 0.92);
+    --nova-tint-border: rgba(15, 20, 25, 0.15);
     color-scheme: light;
 }
 
 :root[data-nova-theme="light"] .nova-folder-external-toggle {
     background: var(--nova-tint-strong);
+}
+
+/* Custom CSS Таверны может с !important красить все заголовки и выключенные кнопки на странице.
+   На тёмном фоне это читается, на светлом — нет, поэтому внутри NOVA в светлой теме перебиваем. */
+:root[data-nova-theme="light"] #nova-backdrop :is(h1, h2, h3, h4) {
+    color: var(--nova-text) !important;
+}
+
+:root[data-nova-theme="light"] #nova-backdrop button:disabled {
+    background-color: var(--nova-surface-hover) !important;
+    color: var(--nova-text-muted) !important;
+    opacity: 1 !important;
+}
+
+:root[data-nova-theme="light"] .nova-relationship-tier-badge.positive {
+    color: #a8750a;
+    background: rgba(168, 117, 10, 0.12);
+}
+
+:root[data-nova-theme="light"] .nova-relationship-tier-badge.negative {
+    color: #c2414b;
+    background: rgba(194, 65, 75, 0.1);
 }
 
 #nova-backdrop {

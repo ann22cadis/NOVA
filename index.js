@@ -1908,12 +1908,12 @@ sketch or construction lines.`,
     }
 
     const NOVA_RELATIONSHIP_BUCKETS = [
-        { min: 0, get label() { return t('Враждебность'); }, color: '#e0888f' },
-        { min: 20, get label() { return t('Неприязнь'); }, color: '#e0aa82' },
-        { min: 40, get label() { return t('Нейтралитет'); }, color: '#a3a8b5' },
-        { min: 60, get label() { return t('Приятели'); }, color: '#8ecf9e' },
-        { min: 80, get label() { return t('Друзья'); }, color: '#f0c675' },
-        { min: 95, get label() { return t('Близкие друзья'); }, color: '#e08ecf' },
+        { min: 0, get label() { return t('Враждебность'); }, get color() { return isLightTheme() ? '#c2414b' : '#e0888f'; } },
+        { min: 20, get label() { return t('Неприязнь'); }, get color() { return isLightTheme() ? '#b8672a' : '#e0aa82'; } },
+        { min: 40, get label() { return t('Нейтралитет'); }, get color() { return isLightTheme() ? '#687080' : '#a3a8b5'; } },
+        { min: 60, get label() { return t('Приятели'); }, get color() { return isLightTheme() ? '#2e8b4a' : '#8ecf9e'; } },
+        { min: 80, get label() { return t('Друзья'); }, get color() { return isLightTheme() ? '#a8750a' : '#f0c675'; } },
+        { min: 95, get label() { return t('Близкие друзья'); }, get color() { return isLightTheme() ? '#b0409a' : '#e08ecf'; } },
     ];
 
     function relationshipBucketForAffinity(affinity) {
@@ -7501,11 +7501,14 @@ sketch or construction lines.`,
         return ctx?.extensionSettings?.NOVA?.ui_language === 'en' ? 'en' : 'ru';
     }
 
+    function isLightTheme() {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        return ctx?.extensionSettings?.NOVA?.theme === 'light';
+    }
+
     /** Тема вешается на <html>, чтобы задевать и то, что NOVA кладёт прямо в <body>. */
     function applyNovaTheme() {
-        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
-        const theme = ctx?.extensionSettings?.NOVA?.theme === 'light' ? 'light' : 'dark';
-        document.documentElement.setAttribute('data-nova-theme', theme);
+        document.documentElement.setAttribute('data-nova-theme', isLightTheme() ? 'light' : 'dark');
     }
 
     /** Локаль для дат/чисел в самом интерфейсе — от языка панели, а не от языка ролевой. */
@@ -10802,7 +10805,7 @@ sketch or construction lines.`,
                         <input type="checkbox" class="folder-master-toggle-outside" ${checkedAttr} style="accent-color: var(--nova-accent); width: 16px; height: 16px; margin: 0; cursor: pointer;">
                     </label>`}
                     ${isCustom && !isArchive ? `
-                    <button class="nova-folder-move-archive-btn" title="${t('В архив')}" style="position:absolute;bottom:8px;left:8px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:var(--nova-text-muted);width:24px;height:24px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.2s;z-index:5;">
+                    <button class="nova-folder-move-archive-btn" title="${t('В архив')}" style="position:absolute;bottom:8px;left:8px;background:var(--nova-tint);border:1px solid var(--nova-tint-border);color:var(--nova-text-muted);width:24px;height:24px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.2s;z-index:5;">
                         <i class="fa-solid fa-box-archive"></i>
                     </button>` : ''}
                     ${isCustom ? `
@@ -11449,7 +11452,9 @@ sketch or construction lines.`,
             // выглядело избыточно и без единиц измерения было непонятно к чему
             const deltaChip = delta => {
                 if (!delta) return '';
-                const deltaColor = delta > 0 ? '#8ecf9e' : '#e0888f';
+                const deltaColor = delta > 0
+                    ? (isLightTheme() ? '#2e8b4a' : '#8ecf9e')
+                    : (isLightTheme() ? '#c2414b' : '#e0888f');
                 return `<span style="font-size: 11px; font-weight: 700; color: ${deltaColor}; flex-shrink: 0;">${delta > 0 ? '+' : ''}${formatAffinity(delta)}</span>`;
             };
 
