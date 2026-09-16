@@ -7501,6 +7501,64 @@ sketch or construction lines.`,
         return ctx?.extensionSettings?.NOVA?.ui_language === 'en' ? 'en' : 'ru';
     }
 
+    // Custom CSS Таверны может с !important задавать цвета, рамки, шрифты и размеры
+    // полям, кнопкам и заголовкам на всей странице — обычный style="" такому правилу
+    // проигрывает. Поэтому визуальные свойства из инлайн-стилей NOVA переводим в
+    // !important: так они сильнее любых таблиц стилей, в том числе слоёв NOVA из style.css.
+    // Раскладку (display/position/transform/opacity) не трогаем — её меняют show/hide и анимации.
+    const NOVA_VISUAL_PROP = /^(color|caret-color|accent-color|background(-[a-z-]+)?|border(-[a-z-]+)?|outline(-[a-z-]+)?|box-shadow|text-shadow|font(-[a-z-]+)?|line-height|letter-spacing|text-transform|text-decoration(-[a-z-]+)?|padding(-[a-z-]+)?|margin(-[a-z-]+)?|width|height|min-width|min-height|max-width|max-height|appearance|-webkit-appearance|filter|-webkit-text-fill-color)$/;
+
+    function splitCssDeclarations(text) {
+        const parts = [];
+        let buf = '', depth = 0, quote = null;
+        for (const ch of text) {
+            if (quote) { buf += ch; if (ch === quote) quote = null; continue; }
+            if (ch === '"' || ch === "'") { quote = ch; buf += ch; continue; }
+            if (ch === '(') depth++;
+            else if (ch === ')') depth--;
+            if (ch === ';' && depth === 0) { if (buf.trim()) parts.push(buf.trim()); buf = ''; continue; }
+            buf += ch;
+        }
+        if (buf.trim()) parts.push(buf.trim());
+        return parts;
+    }
+
+    // Через строку, а не el.style: у шорткатов с var() CSSOM отдаёт пустые лонгхенды,
+    // и перезапись через setProperty стёрла бы, например, рамку целиком
+    function promoteInlineStyles(el) {
+        const text = el.getAttribute('style');
+        if (!text || !text.includes(':')) return;
+        let changed = false;
+        const decls = splitCssDeclarations(text).map(decl => {
+            const idx = decl.indexOf(':');
+            if (idx < 0) return decl;
+            const prop = decl.slice(0, idx).trim().toLowerCase();
+            const value = decl.slice(idx + 1).trim();
+            if (!value || !NOVA_VISUAL_PROP.test(prop) || /!\s*important$/i.test(value)) return decl;
+            changed = true;
+            return `${prop}: ${value} !important`;
+        });
+        if (changed) el.setAttribute('style', decls.join('; ') + ';');
+    }
+
+    /** Держит инлайн-стили внутри root важными — и уже отрисованные, и всё, что добавится или поменяется потом. */
+    function watchNovaIsolation(root) {
+        if (!root || root.__novaIsolated) return;
+        root.__novaIsolated = true;
+        const sweep = node => {
+            if (node.nodeType !== 1) return;
+            if (node.hasAttribute('style')) promoteInlineStyles(node);
+            node.querySelectorAll('[style]').forEach(promoteInlineStyles);
+        };
+        sweep(root);
+        new MutationObserver(records => {
+            for (const r of records) {
+                if (r.type === 'attributes') promoteInlineStyles(r.target);
+                else r.addedNodes.forEach(sweep);
+            }
+        }).observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['style'] });
+    }
+
     function isLightTheme() {
         const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         return ctx?.extensionSettings?.NOVA?.theme === 'light';
@@ -8150,6 +8208,7 @@ sketch or construction lines.`,
             try {
                 const html = await renderExtensionTemplateAsync(TEMPLATES_PATH, 'panel');
                 $('body').append(html);
+                watchNovaIsolation(document.getElementById('nova-backdrop'));
                 applyUiLanguageToStaticPanel();
                 bindPanelEvents();
                 bindImageSettingsEvents();
@@ -10809,7 +10868,7 @@ sketch or construction lines.`,
                         <i class="fa-solid fa-box-archive"></i>
                     </button>` : ''}
                     ${isCustom ? `
-                    <button class="nova-folder-delete-btn" title="${t('Удалить папку')}" style="position:absolute;bottom:8px;right:8px;background:rgba(244,67,54,0.15);border:1px solid rgba(244,67,54,0.4);color:#f44336;width:24px;height:24px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.2s;z-index:5;">
+                    <button class="nova-folder-delete-btn" title="${t('Удалить папку')}" style="position:absolute;bottom:8px;right:8px;color:#f44336;width:24px;height:24px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.2s;z-index:5;">
                         <i class="fa-solid fa-trash"></i>
                     </button>` : ''}
                     <i class="fa-solid ${folder.icon} nova-folder-icon"></i>
@@ -11102,6 +11161,7 @@ sketch or construction lines.`,
         const $menu = $(`<div class="nova-npc-menu" style="position: fixed; background: var(--nova-surface); border: 1px solid var(--nova-border); border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); z-index: 100010; min-width: 220px; max-width: min(320px, 90vw); font-family: var(--nova-font); color: var(--nova-text); overflow: hidden;"></div>`);
         $menu.data('npc-id', npc.id);
         $('body').append($menu);
+        watchNovaIsolation($menu[0]);
 
         function positionMenu() {
             const rect = buttonEl.getBoundingClientRect();
