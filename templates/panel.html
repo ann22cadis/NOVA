@@ -694,7 +694,7 @@
                     <h2 id="nova-single-dm-name" class="nova-truncate" style="margin: 0; font-size: 18px; line-height: 1.2;"></h2>
                     <div id="nova-single-dm-handle" class="nova-truncate" style="font-size: 13px; color: var(--nova-text-muted);"></div>
                 </div>
-                <div class="nova-icon-btn" id="nova-single-dm-transcript-btn" title="Вставить эту переписку в чат дословно" style="background: transparent; color: var(--nova-text-muted); margin-left: auto;">
+                <div class="nova-icon-btn" id="nova-single-dm-transcript-btn" title="Выбрать сообщения для вставки в чат" style="background: transparent; color: var(--nova-text-muted); margin-left: auto;">
                     <i class="fa-solid fa-quote-left"></i>
                 </div>
                 <div class="nova-icon-btn" id="nova-single-dm-delete-mode-btn" title="Выбрать сообщения для удаления" style="background: transparent; color: var(--nova-text-muted);">
@@ -735,6 +735,10 @@
                 <div id="nova-single-dm-delete-actions" style="display: none; gap: 12px; align-items: center;">
                     <button id="nova-single-dm-cancel-delete" style="flex: 1; background: var(--nova-dm-card, var(--nova-surface)); color: var(--nova-dm-card-text, var(--nova-text)); border: 1px solid var(--nova-dm-border, var(--nova-border)); padding: 12px 16px; border-radius: 20px; font-size: 15px; cursor: pointer; font-weight: bold;">Отмена</button>
                     <button id="nova-single-dm-confirm-delete" style="flex: 1; background: #f44336; color: white; border: none; padding: 12px 16px; border-radius: 20px; font-size: 15px; cursor: pointer; font-weight: bold;">Удалить выбранные</button>
+                </div>
+                <div id="nova-single-dm-insert-actions" style="display: none; gap: 12px; align-items: center;">
+                    <button id="nova-single-dm-cancel-insert" style="flex: 1; background: var(--nova-dm-card, var(--nova-surface)); color: var(--nova-dm-card-text, var(--nova-text)); border: 1px solid var(--nova-dm-border, var(--nova-border)); padding: 12px 16px; border-radius: 20px; font-size: 15px; cursor: pointer; font-weight: bold;">Отмена</button>
+                    <button id="nova-single-dm-confirm-insert" style="flex: 1; background: var(--nova-dm-accent, var(--nova-accent)); color: var(--nova-dm-accent-text, white); border: none; padding: 12px 16px; border-radius: 20px; font-size: 15px; cursor: pointer; font-weight: bold;">Вставить выбранное</button>
                 </div>
             </div>
         </div>

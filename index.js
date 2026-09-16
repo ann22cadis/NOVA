@@ -972,6 +972,91 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         );
     }
 
+    /**
+     * Дословная вставка только ОТМЕЧЕННЫХ сообщений — не обязательно подряд.
+     * Голубая метка всё равно двигается на последнее ИЗ ОТМЕЧЕННЫХ (иначе повторный
+     * «вставить всё новое» продублировал бы уже вставленное вручную), поэтому
+     * пропущенные между отмеченными сообщения станут «прочитанными», хотя фактически
+     * в чат не попадут — bindPanelEvents() предупреждает об этом до вызова.
+     */
+    function insertSelectedThreadMessages(index, selectedIndices) {
+        const thread = dmThreads[index];
+        if (!thread?.messages?.length) return;
+
+        const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        if (!stContext || !stContext.chat || stContext.chat.length === 0) {
+            toastr.info(t("Чат пуст, вставлять переписку некуда."));
+            return;
+        }
+
+        let lastIdx = -1;
+        for (let i = thread.messages.length - 1; i >= 0; i--) {
+            if (thread.messages[i][MARK_INSERT]) { lastIdx = i; break; }
+        }
+
+        const sorted = [...new Set(selectedIndices)].filter(i => i > lastIdx).sort((a, b) => a - b);
+        if (!sorted.length) {
+            toastr.info(t("Все сообщения этой переписки уже вставлены в чат."));
+            return;
+        }
+
+        const maxIdx = sorted[sorted.length - 1];
+        const selectedSet = new Set(sorted);
+        let skippedCount = 0;
+        for (let i = lastIdx + 1; i < maxIdx; i++) {
+            if (!selectedSet.has(i)) skippedCount++;
+        }
+
+        const proceed = () => {
+            const messages = sorted.map(i => thread.messages[i]);
+            const { legend, dms } = describeEvents({ posts: [], threads: [{ thread, messages }] });
+            if (!dms) {
+                toastr.info(t("В этой переписке пока нечего вставлять."));
+                return;
+            }
+
+            const chatText = NovaPrompts.rp().chat;
+            const parts = [chatText.threadTranscriptIntro];
+            if (legend) parts.push(chatText.whoIsWho, legend);
+            parts.push(dms);
+
+            injectContextIntoChat(parts.join('\n'), 'transcript');
+
+            // Как и в insertThreadTranscript: метка встаёт на последнее ИЗ ОТМЕЧЕННЫХ,
+            // а не на последнее сообщение треда — пропущенные между ними тоже
+            // считаются прочитанными (юзер уже предупреждён и согласился)
+            thread.messages.forEach(m => delete m[MARK_INSERT]);
+            thread.messages[maxIdx][MARK_INSERT] = true;
+            saveFeed();
+
+            // Сбрасываем режим выбора вручную: openSingleDM не трогает input-bar,
+            // те же шаги, что и после подтверждения удаления
+            $('#nova-single-dm-messages').removeClass('insert-mode');
+            $('#nova-single-dm-input-area').show();
+            $('#nova-single-dm-insert-actions').hide();
+            $('#nova-single-dm-transcript-btn').css('color', 'var(--nova-text-muted)');
+
+            openSingleDM(index);
+            renderDMs();
+
+            toastr.success(
+                `${t('В чат вставлено')} ${pluralUi(sorted.length, { ru: ['сообщение', 'сообщения', 'сообщений'], en: ['message', 'messages'] })} ${t('из переписки с')} ${thread.name}.`,
+                t("Переписка")
+            );
+        };
+
+        if (skippedCount > 0) {
+            novaConfirm(
+                `${t('Между выбранными есть непомеченные сообщения')} (${skippedCount}) ${t('— в чат они не попадут и будут считаться прочитанными. Продолжить?')}`,
+                proceed,
+                t('Продолжить'),
+                'var(--nova-accent)'
+            );
+        } else {
+            proceed();
+        }
+    }
+
     async function generateContextSummary(isAuto = false) {
         console.log("[NOVA] generateContextSummary called", { isAuto });
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
@@ -5933,6 +6018,14 @@ sketch or construction lines.`,
         const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || t('Вы'), color: '#1da1f2' };
 
         thread.messages = thread.messages || [];
+
+        // Голубая метка «докуда уже вставлено» — сообщения до и включая неё
+        // повторно выбрать для вставки нельзя, чекбокс для них не рисуем вовсе
+        let lastInsertedIdx = -1;
+        for (let i = thread.messages.length - 1; i >= 0; i--) {
+            if (thread.messages[i][MARK_INSERT]) { lastInsertedIdx = i; break; }
+        }
+
         thread.messages.forEach((msg, msgIndex) => {
             const isUser = msg.sender === 'user';
             // Через переменные с фолбэком — тема 'default' их не задаёт, и пузыри
@@ -5959,6 +6052,7 @@ sketch or construction lines.`,
                     ${senderNameHtml}
                     <div style="display: flex; align-items: center; gap: 8px; flex-direction: ${isSystemCard ? 'row' : rowDirection};">
                         <input type="checkbox" class="nova-dm-delete-checkbox" style="display: none; width: 18px; height: 18px; accent-color: #f44336; cursor: pointer; flex-shrink: 0;">
+                        ${msgIndex > lastInsertedIdx ? `<input type="checkbox" class="nova-dm-insert-checkbox" style="display: none; width: 18px; height: 18px; accent-color: var(--nova-accent); cursor: pointer; flex-shrink: 0;">` : ''}
                         ${msg.avatarSuggestion ? renderAvatarSuggestionCard(msg.avatarSuggestion, thread) : msg.wallpaperChange ? renderWallpaperChangeCard(msg.wallpaperChange, thread) : msg.themeChange ? renderThemeChangeCard(msg.themeChange, thread) : msg.transfer ? renderTransferCard(msg.transfer, isUser) : `
                         <div style="background: ${bgColor}; color: ${textColor}; padding: 10px 14px; border-radius: ${borderRadius}; font-size: 15px; line-height: 1.4; word-break: break-word;">
                             ${formatPostText(msg.text)}
@@ -6001,12 +6095,58 @@ sketch or construction lines.`,
             }
         });
 
-        // Дословная вставка этой переписки в чат ролеплея
+        // Выбор сообщений для дословной вставки в чат ролеплея — не обязательно подряд
+        const exitInsertMode = () => {
+            $messagesContainer.removeClass('insert-mode');
+            $('.nova-dm-insert-checkbox').hide().prop('checked', false);
+            $('#nova-single-dm-input-area').show();
+            $('#nova-single-dm-insert-actions').hide();
+            $('#nova-single-dm-transcript-btn').css('color', 'var(--nova-text-muted)');
+        };
+        const updateInsertCount = () => {
+            const n = $('.nova-dm-insert-checkbox:checked').length;
+            $('#nova-single-dm-confirm-insert').text(`${t('Вставить выбранное')} (${n})`).prop('disabled', n === 0);
+        };
+
         $('#nova-single-dm-transcript-btn').off('click').on('click', function() {
+            if ($messagesContainer.hasClass('insert-mode')) {
+                exitInsertMode();
+                return;
+            }
+            if (!$('.nova-dm-insert-checkbox').length) {
+                toastr.info(t("В этой переписке пока нечего вставлять."));
+                return;
+            }
+            // Выходим из режима удаления, если он был активен — оба режима разом не нужны
+            $messagesContainer.removeClass('delete-mode');
+            $('.nova-dm-delete-checkbox').hide().prop('checked', false);
+            $('#nova-single-dm-delete-actions').hide();
+            $('#nova-single-dm-delete-mode-btn').css('color', 'var(--nova-text-muted)');
+
+            $messagesContainer.addClass('insert-mode');
+            // По умолчанию отмечены ВСЕ новые сообщения — просто нажать «Вставить
+            // выбранное» без правок чекбоксов равнозначно старому «вставить всё новое»
+            $('.nova-dm-insert-checkbox').show().prop('checked', true);
+            $('#nova-single-dm-input-area').hide();
+            $('#nova-single-dm-insert-actions').css('display', 'flex');
+            updateInsertCount();
+            $(this).css('color', 'var(--nova-accent)');
+        });
+
+        $messagesContainer.off('change', '.nova-dm-insert-checkbox').on('change', '.nova-dm-insert-checkbox', updateInsertCount);
+
+        $('#nova-single-dm-cancel-insert').off('click').on('click', exitInsertMode);
+
+        $('#nova-single-dm-confirm-insert').off('click').on('click', function() {
+            const indices = [];
+            $('.nova-dm-insert-checkbox:checked').each(function() {
+                indices.push($(this).closest('.nova-dm-message-wrapper').data('msg-index'));
+            });
+            if (!indices.length) return;
             try {
-                insertThreadTranscript(index);
+                insertSelectedThreadMessages(index, indices);
             } catch (e) {
-                console.error('[NOVA] Thread transcript insert failed', e);
+                console.error('[NOVA] Selected transcript insert failed', e);
                 toastr.error(t('Не удалось вставить переписку:') + ' ' + (e.message || ''));
             }
         });
@@ -6021,6 +6161,8 @@ sketch or construction lines.`,
                 $('#nova-single-dm-delete-actions').hide();
                 $(this).css('color', 'var(--nova-text-muted)');
             } else {
+                // Выходим из режима вставки, если он был активен
+                exitInsertMode();
                 $messagesContainer.addClass('delete-mode');
                 $('.nova-dm-delete-checkbox').show();
                 $('#nova-single-dm-input-area').hide();
@@ -7777,9 +7919,14 @@ sketch or construction lines.`,
         'Тема чата': 'Chat theme',
         'Написать сообщение...': 'Write a message...',
         'Вставить эту переписку в чат дословно': 'Insert this chat verbatim into the roleplay chat',
+        'Выбрать сообщения для вставки в чат': 'Select messages to insert into the chat',
         'Выбрать сообщения для удаления': 'Select messages to delete',
         'Убрать изображение': 'Remove image',
         'Удалить выбранные': 'Delete selected',
+        'Вставить выбранное': 'Insert selected',
+        'Между выбранными есть непомеченные сообщения': 'There are unmarked messages between the selected ones',
+        'Продолжить': 'Continue',
+        '— в чат они не попадут и будут считаться прочитанными. Продолжить?': "— they won't be inserted into the chat and will be marked as already read. Continue?",
         // Папка NPC
         'Переименовать папку': 'Rename folder',
         'Создать NPC в этой папке': 'Create NPC in this folder',
