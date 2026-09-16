@@ -152,7 +152,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
                         </div>
                         <div style="display: flex; gap: 12px;">
                             <button id="nova-transfer-cancel" style="flex: 1; background: var(--nova-surface-hover); color: var(--nova-text); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">${t('Отмена')}</button>
-                            <button id="nova-transfer-ok" style="flex: 1; background: var(--nova-accent); color: white; border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">${t('Отправить')}</button>
+                            <button id="nova-transfer-ok" style="flex: 1; background: var(--nova-accent); color: var(--nova-dm-accent-text, white); border: none; cursor: pointer; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: bold;">${t('Отправить')}</button>
                         </div>
                     </div>
                 </div>
@@ -1829,7 +1829,7 @@ sketch or construction lines.`,
                 'user-bubble': '#a8355f', 'user-text': '#ffffff',
                 'other-bubble': '#3a2130', 'other-text': '#f5e3ea',
                 surface: '#1e0f18', card: '#33202c',
-                'card-text': '#f5e3ea', accent: '#e0729c',
+                'card-text': '#f5e3ea', accent: '#e0729c', 'accent-text': '#1e0f18',
                 text: '#f7e9ef', muted: '#c9a3b5', border: '#59374a',
             },
         },
@@ -1841,7 +1841,7 @@ sketch or construction lines.`,
                 'user-bubble': '#2f5d8a', 'user-text': '#ffffff',
                 'other-bubble': '#1d2f38', 'other-text': '#dce8ef',
                 surface: '#0c1a20', card: '#1a2c35',
-                'card-text': '#dce8ef', accent: '#6fa8dc',
+                'card-text': '#dce8ef', accent: '#6fa8dc', 'accent-text': '#0c1a20',
                 text: '#e8eef2', muted: '#93a9b5', border: '#2f4a58',
             },
         },
@@ -1853,7 +1853,7 @@ sketch or construction lines.`,
                 'user-bubble': '#59654a', 'user-text': '#eaeee4',
                 'other-bubble': '#1b1c18', 'other-text': '#e3e8de',
                 surface: '#131410', card: '#282b22',
-                'card-text': '#e3e8de', accent: '#a9bd9d',
+                'card-text': '#e3e8de', accent: '#a9bd9d', 'accent-text': '#131410',
                 text: '#e3e8de', muted: '#a3b391', border: '#6d7c58',
             },
         },
@@ -1865,7 +1865,7 @@ sketch or construction lines.`,
                 'user-bubble': '#b04a5f', 'user-text': '#ffffff',
                 'other-bubble': '#33202a', 'other-text': '#f7e6dd',
                 surface: '#24121c', card: '#3a2430',
-                'card-text': '#f7e6dd', accent: '#ff8f6b',
+                'card-text': '#f7e6dd', accent: '#ff8f6b', 'accent-text': '#24121c',
                 text: '#fdeee6', muted: '#d3ab9c', border: '#5c3341',
             },
         },
@@ -1875,7 +1875,7 @@ sketch or construction lines.`,
     // прошлой, а не оставить их подмешанными в новую
     const NOVA_DM_THEME_VAR_KEYS = [
         'user-bubble', 'user-text', 'other-bubble', 'other-text',
-        'surface', 'card', 'card-text', 'accent', 'text', 'muted', 'border',
+        'surface', 'card', 'card-text', 'accent', 'accent-text', 'text', 'muted', 'border',
     ];
 
     function getDMTheme(id) {

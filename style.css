@@ -2594,6 +2594,46 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
     }
 }
 
+/* ── Тема чата поверх темы NOVA ──────────────────────────────────────────────
+   Темы чата (кроме «Обычной») задают свою тёмную палитру в --nova-dm-*. Внутри
+   переписки и её модалок они подменяют базовые цвета NOVA — иначе всё, что берёт
+   --nova-text/--nova-text-muted/--nova-surface напрямую (ник, время, иконки шапки,
+   диалог перевода, выбор темы), оставалось бы в светлой палитре NOVA на тёмном фоне. */
+@layer nova-components {
+    #nova-view-single-dm.nova-dm-themed,
+    #nova-backdrop.nova-dm-themed :is(#nova-transfer-overlay, #nova-theme-picker-overlay, #nova-confirm-overlay, #nova-prompt-overlay, #nova-playlist-modal-overlay) {
+        --nova-bg: var(--nova-dm-surface);
+        --nova-surface: var(--nova-dm-card);
+        --nova-surface-hover: var(--nova-dm-card);
+        --nova-border: var(--nova-dm-border);
+        --nova-text: var(--nova-dm-text);
+        --nova-text-muted: var(--nova-dm-muted);
+        --nova-accent: var(--nova-dm-accent);
+        --nova-accent-hover: var(--nova-dm-accent);
+        --nova-tint: rgba(255, 255, 255, 0.1);
+        --nova-tint-strong: rgba(255, 255, 255, 0.14);
+        --nova-inset: rgba(0, 0, 0, 0.2);
+        --nova-marker-shade: 0%;
+        color-scheme: dark;
+    }
+
+    /* Светлые акценты тем чата («Лес», «Полночь», «Закат») с белым значком нечитаемы */
+    #nova-view-single-dm .nova-transfer-card.outgoing .nova-transfer-icon,
+    #nova-view-single-dm .nova-music-play,
+    #nova-backdrop .nova-playlist-play-all {
+        color: var(--nova-dm-accent-text, #fff) !important;
+    }
+
+    /* Подпись «Пересказано/Вставлено в чат» — в светлой NOVA темнее своего цвета */
+    .nova-context-marker {
+        color: color-mix(in srgb, var(--nova-marker-color, #4caf50), #000 var(--nova-marker-shade, 0%)) !important;
+    }
+}
+
+:root[data-nova-theme="light"] {
+    --nova-marker-shade: 35%;
+}
+
 /* ── Нейтральная база ────────────────────────────────────────────────────────
    Всё, что NOVA не задаёт сама, но что Таверна или её Custom CSS красят глобально:
    шрифт и размер текста, поля ввода, кнопки, заголовки, чекбоксы, ползунки.
