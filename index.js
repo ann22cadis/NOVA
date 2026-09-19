@@ -910,69 +910,6 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
     }
 
     /**
-     * Дословная вставка ОДНОЙ переписки, без ленты: из открытого диалога логично
-     * отправить в ролеплей именно его реплики. Берётся всё, что не уходило в чат
-     * раньше, — повторное нажатие не задублирует уже вставленное.
-     */
-    function insertThreadTranscript(index) {
-        const thread = dmThreads[index];
-        if (!thread?.messages?.length) {
-            toastr.info(t("В этой переписке пока нечего вставлять."));
-            return;
-        }
-
-        const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
-        if (!stContext || !stContext.chat || stContext.chat.length === 0) {
-            toastr.info(t("Чат пуст, вставлять переписку некуда."));
-            return;
-        }
-
-        // Считаем от голубой полоски — своей, не от зелёной: пересказ и вставка
-        // ведут учёт порознь, и саммари не должно «съедать» невставленное
-        let lastIdx = -1;
-        for (let i = thread.messages.length - 1; i >= 0; i--) {
-            if (thread.messages[i][MARK_INSERT]) { lastIdx = i; break; }
-        }
-        // Без метки берём тред целиком: кнопка нажата осознанно и именно по этому диалогу,
-        // обрезать его на последних 15 сообщениях было бы потерей по своей инициативе
-        const messages = lastIdx !== -1 ? thread.messages.slice(lastIdx + 1) : thread.messages.slice();
-        if (!messages.length) {
-            toastr.info(t("Все сообщения этой переписки уже вставлены в чат."));
-            return;
-        }
-
-        const { legend, dms } = describeEvents({ posts: [], threads: [{ thread, messages }] });
-        if (!dms) {
-            toastr.info(t("В этой переписке пока нечего вставлять."));
-            return;
-        }
-
-        const chatText = NovaPrompts.rp().chat;
-        const parts = [chatText.threadTranscriptIntro];
-        if (legend) parts.push(chatText.whoIsWho, legend);
-        parts.push(dms);
-
-        // Сначала блок в чат: перерисовка сверяет полоски с содержимым чата
-        // и сняла бы метку, поставленную раньше вставки
-        injectContextIntoChat(parts.join('\n'), 'transcript');
-
-        // Двигаем метку только у этого треда: лента и остальные диалоги
-        // должны остаться непрочитанными для кнопок в «Памяти»
-        thread.messages.forEach(m => delete m[MARK_INSERT]);
-        thread.messages[thread.messages.length - 1][MARK_INSERT] = true;
-        saveFeed();
-
-        // Перерисовываем открытый диалог, чтобы голубая полоска встала на место сразу
-        openSingleDM(index);
-        renderDMs();
-
-        toastr.success(
-            `${t('В чат вставлено')} ${pluralUi(messages.length, { ru: ['сообщение', 'сообщения', 'сообщений'], en: ['message', 'messages'] })} ${t('из переписки с')} ${thread.name}.`,
-            t("Переписка")
-        );
-    }
-
-    /**
      * Дословная вставка только ОТМЕЧЕННЫХ сообщений — не обязательно подряд.
      * Голубая метка всё равно двигается на последнее ИЗ ОТМЕЧЕННЫХ (иначе повторный
      * «вставить всё новое» продублировал бы уже вставленное вручную), поэтому
@@ -1022,19 +959,12 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
 
             injectContextIntoChat(parts.join('\n'), 'transcript');
 
-            // Как и в insertThreadTranscript: метка встаёт на последнее ИЗ ОТМЕЧЕННЫХ,
-            // а не на последнее сообщение треда — пропущенные между ними тоже
-            // считаются прочитанными (юзер уже предупреждён и согласился)
+            // Метка встаёт на последнее ИЗ ОТМЕЧЕННЫХ, а не на последнее сообщение
+            // треда — пропущенные между ними тоже считаются прочитанными
+            // (юзер уже предупреждён и согласился)
             thread.messages.forEach(m => delete m[MARK_INSERT]);
             thread.messages[maxIdx][MARK_INSERT] = true;
             saveFeed();
-
-            // Сбрасываем режим выбора вручную: openSingleDM не трогает input-bar,
-            // те же шаги, что и после подтверждения удаления
-            $('#nova-single-dm-messages').removeClass('insert-mode');
-            $('#nova-single-dm-input-area').show();
-            $('#nova-single-dm-insert-actions').hide();
-            $('#nova-single-dm-transcript-btn').css('color', 'var(--nova-text-muted)');
 
             openSingleDM(index);
             renderDMs();
@@ -6012,6 +5942,14 @@ sketch or construction lines.`,
 
         const $messagesContainer = $('#nova-single-dm-messages');
         $messagesContainer.empty();
+
+        // Контейнер и панели общие для всех тредов, а чекбоксы ниже рисуются заново —
+        // без сброса режим выбора «переживал» уход из треда или перерисовку (ответ NPC)
+        // с уже скрытыми чекбоксами, скрытым полем ввода и висящей панелью действий
+        $messagesContainer.removeClass('delete-mode insert-mode');
+        $('#nova-single-dm-input-area').show();
+        $('#nova-single-dm-delete-actions, #nova-single-dm-insert-actions').hide();
+        $('#nova-single-dm-delete-mode-btn, #nova-single-dm-transcript-btn').css('color', 'var(--nova-text-muted)');
 
         const stContext = SillyTavern.getContext();
         const activeProfiles = getActiveProfiles();
@@ -12195,7 +12133,7 @@ sketch or construction lines.`,
         const $el = $(this);
         if (feedSelectMode && $el.hasClass('nova-feed-post')) return;
         if (replySelectMode && $el.hasClass('nova-reply-wrapper')) return;
-        if ($(this).hasClass('nova-dm-message-wrapper') && $('#nova-single-dm-messages').hasClass('delete-mode')) return;
+        if ($(this).hasClass('nova-dm-message-wrapper') && $('#nova-single-dm-messages').is('.delete-mode, .insert-mode')) return;
 
         // На картинке Android Chrome готовит своё нативное меню («сохранить», «поделиться»)
         // ПАРАЛЛЕЛЬНО с нашим таймером — если ждать 600 мс и ставить preventDefault только
