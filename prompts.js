@@ -148,8 +148,8 @@ export const NovaPrompts = {
      * @param {'feed'|'dm'} opts.target — куда прикладывается фото
      * @param {string} opts.allowedHandles — кому фото разрешено; пусто — ограничений нет
      * @param {string} opts.protocol — пресет: ЧЕМ заполнять тег, пишет пользователь
-     * @param {string} opts.style — активный стиль картинки: приложение добавляет его
-     *   к КАЖДОМУ запросу само, модель своё поле "style" не заполняет
+     * @param {string} opts.style — активный стиль картинки, применяется автоматически,
+     *   если модель не укажет свой в поле "style" тега
      * @param {boolean} opts.withReferences — приложен ли референс внешности
      */
     imageInstructionBlock({ maxImages = 0, target = 'feed', allowedHandles = '', protocol = '', style = '', withReferences = false } = {}) {
@@ -173,10 +173,10 @@ PHOTOS (image generation is ON):
 ${where} STRICT FORMAT — this part is fixed and not up for interpretation:
 
 - Put this tag at the very END of the object's own "text". It is read and removed before the post is shown:
-  <img data-iig-instruction='{\\"prompt\\":\\"[PROMPT IN ENGLISH]\\",\\"aspect_ratio\\":\\"3:4\\",\\"image_size\\":\\"2K\\"}' src="[IMG:GEN]">
+  <img data-iig-instruction='{\\"prompt\\":\\"[PROMPT IN ENGLISH]\\",\\"aspect_ratio\\":\\"3:4\\",\\"image_size\\":\\"2K\\",\\"style\\":\\"\\"}' src="[IMG:GEN]">
 - The JSON stays on ONE line. Single quotes around the whole object. This tag lives INSIDE a JSON string value (the object's own "text" field) — so every double quote inside it MUST be backslash-escaped (\\") exactly like the example above, or the whole response becomes invalid JSON and gets thrown away entirely. No literal newlines. Keep src="[IMG:GEN]" exactly as written.
 - "aspect_ratio" accepts only: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9. "image_size" accepts only: 1K, 2K, 4K. Anything else is replaced by the app's own setting.
-- There is NO "style" field: the app adds its own configured visual style to EVERY photo by itself. Never write a style field or restate a style in "prompt".
+- "style" is OPTIONAL — leave it "" to use the app's own configured visual style automatically. Only fill it in when THIS specific photo needs to look different from the usual style (e.g. a drawing, an old photograph, a screenshot).
 - "prompt" is ENGLISH, one dense paragraph, no line breaks, no URLs, no file paths, no markdown. It is handed to an image generator that sees NOTHING else — not this post, not the chat, not the character cards.
 - Equivalent alternative: instead of the tag, put the field "image_prompt": "..." on the object. Use ONE of the two, never both.
 - The object's own "text" stays IN ${L.NAME} and reads like a caption next to the photo, never a description of it.
@@ -188,7 +188,7 @@ ${appearance}${allowedHandles ? `
 WHAT TO PUT IN "prompt" — the user's own rules, follow them:
 ${protocol}` : ''}${style ? `
 
-VISUAL STYLE (added to every photo automatically — for your information only, never restate it in "prompt"):
+CURRENT DEFAULT VISUAL STYLE (applied automatically when "style" is left empty — no need to restate it in "prompt"):
 ${style}` : ''}`;
     },
 
@@ -328,8 +328,8 @@ The photo is already placed in the conversation as the player's own message — 
 
 Two things are required of you:
 1. Add a top-level field "user_photo" to your JSON response — the SAME fields you would put in your own photo tag, just as a plain object instead of the <img> tag markup (there is no surrounding message text to embed it in here, the player's message is handled separately):
-{"prompt": "[PROMPT IN ENGLISH]", "aspect_ratio": "3:4", "image_size": "2K"}
-Same rules as your own photos: "prompt" is English, one dense paragraph — expand the player's short description into a real prompt (setting, framing, lighting, what is actually visible). It is a photo taken by or of the PLAYER, so frame it that way. "aspect_ratio" only from: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9 — pick whatever actually suits THIS photo (a selfie is usually vertical, not square). "image_size" only: 1K, 2K, 4K. There is no "style" field — the app applies its own visual style to every photo, same as for your own.
+{"prompt": "[PROMPT IN ENGLISH]", "aspect_ratio": "3:4", "image_size": "2K", "style": ""}
+Same rules as your own photos: "prompt" is English, one dense paragraph — expand the player's short description into a real prompt (setting, framing, lighting, what is actually visible). It is a photo taken by or of the PLAYER, so frame it that way. "aspect_ratio" only from: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9 — pick whatever actually suits THIS photo (a selfie is usually vertical, not square). "image_size" only: 1K, 2K, 4K. "style" stays "" to use the app's configured visual style, same as for your own photos.
 2. In "messages", write ONLY your own character's reaction to receiving this photo — react to what is actually in it, the way a real person reacts to a photo a friend just sent. Do not merely acknowledge that a photo arrived.`;
         }
 
