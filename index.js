@@ -1798,7 +1798,6 @@ sketch or construction lines.`,
             // Параметры кадра модель выбирает под конкретное фото — вертикальное
             // селфи и горизонтальный вид требуют разного соотношения сторон
             item.image_opts = {
-                style: String(found.data.style || '').trim(),
                 aspect_ratio: String(found.data.aspect_ratio || '').trim(),
                 image_size: String(found.data.image_size || '').trim(),
             };
@@ -2859,10 +2858,10 @@ sketch or construction lines.`,
         const model = String(profile.model || '').trim();
         if (!model) throw new Error(`У профиля «${profile.name}» не выбрана модель`);
 
-        // Модель может вписать свой "style" в тег под конкретный кадр — тогда он в
-        // приоритете. Если поле пустое, принудительно подставляем выбранный в
-        // настройках стиль, а не оставляем картинку вовсе без него.
-        const styleText = String(opts?.style || getActiveImageStyle()?.style || '').trim();
+        // Стиль из настроек уходит в КАЖДЫЙ запрос. Поле "style" из тега модели
+        // намеренно не читаем: раньше непустое значение вытесняло выбранный стиль, а
+        // модель заполняла его произвольно — стиль применялся «через раз».
+        const styleText = String(getActiveImageStyle()?.style || '').trim();
         if (styleText) text = `[Style: ${styleText}] ${text}`;
 
         // Кадр (соотношение сторон) выбирает модель под конкретное фото — вертикальное
@@ -7089,7 +7088,6 @@ sketch or construction lines.`,
                 commandPhotoMsg.image_opts = {
                     aspect_ratio: String(userPhoto.aspect_ratio || '').trim(),
                     image_size: String(userPhoto.image_size || '').trim(),
-                    style: String(userPhoto.style || '').trim(),
                 };
             }
 
