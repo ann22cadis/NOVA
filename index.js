@@ -3420,6 +3420,23 @@ sketch or construction lines.`,
         return messages;
     }
 
+    /**
+     * Раскрывает макросы Таверны ({{user}}, {{getglobalvar::…}}, макросы других расширений).
+     * Главный API делает это сам внутри generateRaw, а запрос по профилю подключения
+     * (ConnectionManagerRequestService) макросы не трогает — иначе они уходили бы модели
+     * буквальным текстом. Сбой раскрытия не должен ронять генерацию.
+     */
+    function expandMacros(ctx, text) {
+        const source = String(text ?? '');
+        if (!source.includes('{{') || typeof ctx?.substituteParams !== 'function') return source;
+        try {
+            return ctx.substituteParams(source);
+        } catch (e) {
+            console.warn('[NOVA] Не удалось раскрыть макросы, промпт уходит как есть', e);
+            return source;
+        }
+    }
+
     // Helper: Call AI without system prompts
     async function callAI(rawPromptText, images = []) {
         const visionImages = (Array.isArray(images) ? images : [images]).filter(Boolean);
@@ -3465,6 +3482,9 @@ sketch or construction lines.`,
 
         if (!profile.api) throw new Error(`У профиля '${profileName}' не выбран API.`);
 
+        const profilePrompt = expandMacros(ctx, promptText);
+        const profilePrefill = expandMacros(ctx, startReplyWith);
+
         const apiMap = ctx?.CONNECT_API_MAP?.[profile.api];
         if (!apiMap) throw new Error(`Неизвестный тип API '${profile.api}' в профиле '${profileName}'.`);
         const isChatCompletion = apiMap.selected === 'openai';
@@ -3501,7 +3521,7 @@ sketch or construction lines.`,
             try {
                 result = await service.sendRequest(
                     profile.id,
-                    buildMessages(promptText, startReplyWith, visionImages),
+                    buildMessages(profilePrompt, profilePrefill, visionImages),
                     maxTokens,
                     { stream: false, extractData: true, includePreset: true, includeInstruct: true },
                     overridePayload,
@@ -3525,7 +3545,7 @@ sketch or construction lines.`,
         }
 
         const generate_data = {
-            'messages': buildMessages(promptText, startReplyWith, visionImages),
+            'messages': buildMessages(profilePrompt, profilePrefill, visionImages),
             'model': model,
             'temperature': 0.8,
             'stream': false,
