@@ -2864,9 +2864,25 @@ sketch or construction lines.`,
         // заменяется. Раньше непустое поле модели вытесняло выбранный стиль, и он
         // применялся «через раз».
         const styleText = String(getActiveImageStyle()?.style || '').trim();
-        // Точный текст из настроек, один раз: если модель уже вставила его в сам промпт
-        // слово в слово, второй раз не добавляем
-        if (styleText && !text.includes(styleText)) text = `[Style: ${styleText}] ${text}`;
+        if (styleText) {
+            // Стиль модели заменяем и там, где она продублировала его в самом промпте, —
+            // но только когда он стоит отдельным фрагментом между знаками препинания
+            // (иначе вырезка посреди предложения его бы сломала)
+            const modelStyle = String(opts?.style || '').trim();
+            if (modelStyle.length >= 6 && modelStyle.toLowerCase() !== styleText.toLowerCase()) {
+                const esc = modelStyle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
+                const cleaned = text
+                    .replace(new RegExp(`(^|[,.;\\n(\\[])\\s*(?:style\\s*:\\s*)?${esc}\\s*(?=[,.;\\n)\\]]|$)`, 'gi'), '$1')
+                    .replace(/([,;])\s*[,;]+/g, '$1')
+                    .replace(/^[\s,;.]+/, '')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim();
+                if (cleaned) text = cleaned;
+            }
+            // Точный текст из настроек, один раз: если он уже стоит в промпте слово
+            // в слово, второй раз не добавляем
+            if (!text.includes(styleText)) text = `[Style: ${styleText}] ${text}`;
+        }
 
         // Кадр (соотношение сторон) выбирает модель под конкретное фото — вертикальное
         // селфи и горизонтальный вид требуют разного, а угадать заранее нельзя.
