@@ -4351,7 +4351,7 @@ sketch or construction lines.`,
                 top: `${visibleTop + visibleHeight / 2}px`,
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                maxHeight: `${Math.max(160, visibleHeight - 32)}px`,
+                maxHeight: `${Math.max(160, visibleHeight - 32 - getSafeInsets().top - getSafeInsets().bottom)}px`,
             });
         };
         if (window.visualViewport) {
@@ -4383,7 +4383,7 @@ sketch or construction lines.`,
                         <img src="${currentVersion.image}" alt="" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transition: transform 0.1s ease-out; transform-origin: center center; will-change: transform;">
                     </div>
 
-                    <div class="nova-icon-btn" id="nova-image-viewer-close" title="${t('Закрыть')}" style="position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.12); z-index: 20; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                    <div class="nova-icon-btn" id="nova-image-viewer-close" title="${t('Закрыть')}" style="position: absolute; top: calc(16px + var(--nova-safe-top)); right: calc(16px + var(--nova-safe-right)); background: rgba(255,255,255,0.12); z-index: 20; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                         <i class="fa-solid fa-xmark"></i>
                     </div>
 
@@ -4424,7 +4424,7 @@ sketch or construction lines.`,
                         </div>
                     </div>` : ''}
 
-                    <div class="nova-photo-viewer-actions" style="position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; padding-bottom: max(32px, calc(env(safe-area-inset-bottom, 0px) + 24px)); background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; justify-content: center; gap: 24px; z-index: 10; pointer-events: none;">
+                    <div class="nova-photo-viewer-actions" style="position: absolute; bottom: 0; left: 0; right: 0; padding: 16px; padding-bottom: max(32px, calc(var(--nova-safe-bottom) + 24px)); background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; justify-content: center; gap: 24px; z-index: 10; pointer-events: none;">
                         ${canRegenerate ? `
                         <div class="nova-icon-btn" id="nova-image-viewer-regenerate" title="${t('Перегенерировать (тот же промпт)')}" style="pointer-events: auto; width: 48px; height: 48px; border-radius: 50%; background: rgba(255, 255, 255, 0.15); color: white; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(8px); transition: background 0.2s, transform 0.1s;">
                             <i class="fa-solid fa-sync-alt"></i>
@@ -10606,8 +10606,8 @@ sketch or construction lines.`,
             let shape = 'square';
 
             const $overlay = $(`
-                <div class="nova-cropper" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; height: 100dvh; z-index: 100020; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; font-family: var(--nova-font); color: var(--nova-text); overscroll-behavior: contain; touch-action: none;">
-                    <div style="flex: 0 0 auto; padding: 14px 16px 8px; text-align: center; font-size: 15px; font-weight: 600;">${title}</div>
+                <div class="nova-cropper" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; box-sizing: border-box; padding-left: var(--nova-safe-left); padding-right: var(--nova-safe-right); width: 100%; height: 100%; height: 100dvh; z-index: 100020; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; font-family: var(--nova-font); color: var(--nova-text); overscroll-behavior: contain; touch-action: none;">
+                    <div style="flex: 0 0 auto; padding: calc(14px + var(--nova-safe-top)) 16px 8px; text-align: center; font-size: 15px; font-weight: 600;">${title}</div>
                     <div class="nova-cropper-body" style="flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 8px 12px; overflow: hidden;">
                         <div class="nova-cropper-stage" style="position: relative; line-height: 0; touch-action: none; user-select: none; max-width: 100%; max-height: 100%;">
                             <img class="nova-cropper-img" src="${img.src}" style="display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; pointer-events: none;">
@@ -10619,7 +10619,7 @@ sketch or construction lines.`,
                             </div>
                         </div>
                     </div>
-                    <div style="flex: 0 0 auto; background: var(--nova-surface); border-top: 1px solid var(--nova-border); padding: 12px 16px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 10px;">
+                    <div style="flex: 0 0 auto; background: var(--nova-surface); border-top: 1px solid var(--nova-border); padding: 12px 16px; padding-bottom: calc(12px + var(--nova-safe-bottom)); display: flex; flex-direction: column; gap: 10px;">
                         ${allowShape ? `
                         <div style="display: flex; gap: 8px; justify-content: center;">
                             <button class="nova-crop-shape" data-shape="square" style="flex: 1; max-width: 160px; background: var(--nova-accent); color: white; border: 1px solid var(--nova-accent); padding: 8px; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 600;">
@@ -11274,6 +11274,23 @@ sketch or construction lines.`,
      * у карточки стоит overflow: hidden, внутри неё выпадашку обрезает.
      * Двухшаговое: сначала действие, потом выбор папки (иначе при десятке папок список нечитаем).
      */
+    // Безопасная зона для расчёта позиций в JS: читаем через невидимый элемент,
+    // потому что var()/env() в getPropertyValue приходят строкой, а не числом
+    let safeInsetProbe = null;
+    function getSafeInsets() {
+        if (!safeInsetProbe || !safeInsetProbe.isConnected) {
+            safeInsetProbe = document.createElement('div');
+            safeInsetProbe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;width:0;height:0;'
+                + 'padding:var(--nova-safe-top) var(--nova-safe-right) var(--nova-safe-bottom) var(--nova-safe-left);';
+            document.body.appendChild(safeInsetProbe);
+        }
+        const cs = getComputedStyle(safeInsetProbe);
+        return {
+            top: parseFloat(cs.paddingTop) || 0, right: parseFloat(cs.paddingRight) || 0,
+            bottom: parseFloat(cs.paddingBottom) || 0, left: parseFloat(cs.paddingLeft) || 0,
+        };
+    }
+
     function openNpcActionsMenu(npc, folder, buttonEl, otherFolders) {
         const alreadyOpen = $('.nova-npc-menu').data('npc-id') === npc.id;
         closeNpcActionsMenu();
@@ -11292,14 +11309,19 @@ sketch or construction lines.`,
             const menuW = $menu.outerWidth();
             const menuH = $menu.outerHeight();
             const margin = 8;
+            const safe = getSafeInsets();
+            const minLeft = margin + safe.left;
+            const minTop = margin + safe.top;
+            const maxRight = window.innerWidth - margin - safe.right;
+            const maxBottom = window.innerHeight - margin - safe.bottom;
 
             let left = rect.right - menuW;
-            left = Math.max(margin, Math.min(left, window.innerWidth - menuW - margin));
+            left = Math.max(minLeft, Math.min(left, maxRight - menuW));
 
             let top = rect.bottom + 4;
-            if (top + menuH > window.innerHeight - margin) {
+            if (top + menuH > maxBottom) {
                 const above = rect.top - menuH - 4;
-                top = above >= margin ? above : Math.max(margin, window.innerHeight - menuH - margin);
+                top = above >= minTop ? above : Math.max(minTop, maxBottom - menuH);
             }
             $menu.css({ left: left + 'px', top: top + 'px' });
         }
