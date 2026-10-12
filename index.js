@@ -6900,59 +6900,91 @@ sketch or construction lines.`,
         return `<img class="nova-dm-sticker" src="${escapeHtml(stickerSrc(sticker?.image))}" alt="${name}" title="${name}" loading="lazy" draggable="false">`;
     }
 
-    // ── Выбор стикера в переписке ──
+    // ── Выбор стикера в переписке — он же единственное место настроек ──
+    //
+    // Вкладки паков, сетка, а внизу — общий переключатель и правка/создание пака.
+    // Отдельного экрана в «Настройках» нет: всё, что касается стикеров, тут.
 
     let stickerPickerPackId = null;
+    let stickerPickerTarget = null; // { index, thread } открытой переписки
 
     function closeStickerPicker() {
         $('#nova-dm-sticker-picker').remove();
         $(document).off('click.novaStickerPicker');
+        stickerPickerTarget = null;
     }
 
-    function openStickerPicker(index, thread) {
-        closeStickerPicker();
-        // Пункт в «+» виден всегда — так проще найти, где включаются стикеры
-        if (!getStickerSettings().enabled) {
-            toastr.info(t('Стикеры выключены — включите их в Настройках → Стикерпаки.'));
-            return;
-        }
-        const packs = getUsableStickerPacks();
-        if (!packs.length) {
-            toastr.info(t('Стикерпаков пока нет — создайте их в Настройках → Стикерпаки.'));
-            return;
-        }
-        if (!packs.some(p => p.id === stickerPickerPackId)) stickerPickerPackId = packs[0].id;
+    function renderStickerPicker() {
+        const $picker = $('#nova-dm-sticker-picker');
+        if (!$picker.length) return;
+        const cfg = getStickerSettings();
+        const packs = cfg.packs.filter(p => Array.isArray(p.stickers) && p.stickers.length);
+        if (!packs.some(p => p.id === stickerPickerPackId)) stickerPickerPackId = packs[0]?.id || null;
+        const pack = packs.find(p => p.id === stickerPickerPackId) || null;
 
-        const $picker = $('<div id="nova-dm-sticker-picker" class="nova-sticker-picker"></div>');
-        const render = () => {
-            const pack = packs.find(p => p.id === stickerPickerPackId) || packs[0];
-            $picker.html(`
+        let body;
+        if (!cfg.enabled) {
+            body = `<div class="nova-sticker-picker-empty">${t('Стикеры выключены — ни вы, ни персонажи их не отправляют.')}</div>`;
+        } else if (!pack) {
+            body = `<div class="nova-sticker-picker-empty">${t('Пока нет ни одного набора.')}<br><button type="button" class="nova-sticker-picker-create">${t('Создать стикерпак')}</button></div>`;
+        } else {
+            body = `
                 <div class="nova-sticker-picker-tabs">
                     ${packs.map(p => `<button type="button" class="nova-sticker-picker-tab ${p.id === pack.id ? 'active' : ''}" data-pack="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`).join('')}
                 </div>
                 <div class="nova-sticker-picker-grid">
                     ${pack.stickers.map(s => `<button type="button" class="nova-sticker-picker-item" data-sticker="${escapeHtml(s.id)}" title="${escapeHtml(s.name)}"><img src="${escapeHtml(stickerSrc(s.image))}" alt="" draggable="false"></button>`).join('')}
-                </div>
-            `);
-        };
-        render();
-        $('#nova-single-dm-input-bar').append($picker);
+                </div>`;
+        }
 
-        $picker.on('click', '.nova-sticker-picker-tab', function(e) {
-            e.stopPropagation();
+        $picker.html(`
+            ${body}
+            <div class="nova-sticker-picker-footer">
+                <label class="nova-sticker-picker-toggle" title="${t('Один переключатель на все чаты')}">
+                    <input type="checkbox" class="nova-sticker-enabled" ${cfg.enabled ? 'checked' : ''}>
+                    <span>${t('Стикеры включены')}</span>
+                </label>
+                <div class="nova-sticker-picker-actions">
+                    ${cfg.enabled && pack ? `<button type="button" class="nova-sticker-picker-edit" title="${t('Изменить набор')}"><i class="fa-solid fa-pen"></i></button>` : ''}
+                    <button type="button" class="nova-sticker-picker-new" title="${t('Новый стикерпак')}"><i class="fa-solid fa-plus"></i></button>
+                </div>
+            </div>
+        `);
+    }
+
+    function openStickerPicker(index, thread) {
+        closeStickerPicker();
+        stickerPickerTarget = { index, thread };
+        const $picker = $('<div id="nova-dm-sticker-picker" class="nova-sticker-picker"></div>');
+        $('#nova-single-dm-input-bar').append($picker);
+        renderStickerPicker();
+
+        $picker.on('click', e => e.stopPropagation());
+        $picker.on('click', '.nova-sticker-picker-tab', function() {
             stickerPickerPackId = String($(this).attr('data-pack'));
-            render();
+            renderStickerPicker();
         });
-        $picker.on('click', '.nova-sticker-picker-item', function(e) {
-            e.stopPropagation();
-            const pack = packs.find(p => p.id === stickerPickerPackId);
+        $picker.on('click', '.nova-sticker-picker-item', function() {
+            const pack = getUsableStickerPacks().find(p => p.id === stickerPickerPackId);
             const sticker = pack?.stickers.find(s => s.id === String($(this).attr('data-sticker')));
-            if (pack && sticker) sendUserSticker(index, thread, pack, sticker);
+            if (pack && sticker && stickerPickerTarget) sendUserSticker(stickerPickerTarget.index, stickerPickerTarget.thread, pack, sticker);
         });
-        // Со следующего тика: иначе тот же клик, что открыл выбор, сразу бы его закрыл
+        $picker.on('change', '.nova-sticker-enabled', function() {
+            getStickerSettings().enabled = this.checked;
+            saveStickerSettings();
+            renderStickerPicker();
+        });
+        $picker.on('click', '.nova-sticker-picker-new, .nova-sticker-picker-create', () => openStickerPackEditor());
+        $picker.on('click', '.nova-sticker-picker-edit', () => {
+            if (stickerPickerPackId) openStickerPackEditor(stickerPickerPackId);
+        });
+
+        // Со следующего тика: иначе тот же клик, что открыл выбор, сразу бы его закрыл.
+        // Клики в редакторе пака и в его подтверждениях выбор не закрывают — после
+        // «Назад» человек возвращается ровно туда, откуда ушёл
         setTimeout(() => {
             $(document).on('click.novaStickerPicker', e => {
-                if (!$(e.target).closest('#nova-dm-sticker-picker, #nova-dm-stickers').length) closeStickerPicker();
+                if (!$(e.target).closest('#nova-dm-sticker-picker, #nova-dm-stickers, #nova-view-sticker-pack, #nova-confirm-overlay').length) closeStickerPicker();
             });
         }, 0);
     }
@@ -6975,36 +7007,11 @@ sketch or construction lines.`,
         generateDMResponse(index);
     }
 
-    // ── Экран стикерпаков и редактор пака ──
+    // ── Редактор пака: открывается поверх переписки ──
 
     // Редактируемый пак. Новые картинки до сохранения живут тут data URL —
     // в папку пользователя попадают только при «Сохранить», без брошенных файлов
     let stickerDraft = null;
-
-    function renderStickerSettings() {
-        const cfg = getStickerSettings();
-        $('#nova-stickers-enabled').prop('checked', cfg.enabled);
-        const $list = $('#nova-sticker-pack-list').empty();
-        if (!cfg.packs.length) {
-            $list.append(`<div style="color: var(--nova-text-muted); font-size: 14px; text-align: center; padding: 16px;">${t('Стикерпаков пока нет.')}</div>`);
-            return;
-        }
-        cfg.packs.forEach(pack => {
-            const preview = pack.stickers.slice(0, 4)
-                .map(s => `<img src="${escapeHtml(stickerSrc(s.image))}" alt="" style="width: 40px; height: 40px; object-fit: contain;">`)
-                .join('');
-            $list.append(`
-                <div class="nova-sticker-pack-row" data-pack="${escapeHtml(pack.id)}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); cursor: pointer;">
-                    <div style="display: flex; gap: 4px; flex-shrink: 0;">${preview}</div>
-                    <div style="min-width: 0; flex: 1;">
-                        <div class="nova-truncate" style="font-weight: 700; font-size: 15px;">${escapeHtml(pack.name)}</div>
-                        <div style="font-size: 13px; color: var(--nova-text-muted);">${pluralUi(pack.stickers.length, { ru: ['стикер', 'стикера', 'стикеров'], en: ['sticker', 'stickers'] })}</div>
-                    </div>
-                    <i class="fa-solid fa-chevron-right" style="color: var(--nova-text-muted);"></i>
-                </div>
-            `);
-        });
-    }
 
     function openStickerPackEditor(packId = null) {
         const pack = packId ? getStickerSettings().packs.find(p => p.id === packId) : null;
@@ -7106,7 +7113,9 @@ sketch or construction lines.`,
             for (const s of d.stickers) {
                 let image = s.image;
                 if (String(image).startsWith('data:')) {
-                    // Расширение — по содержимому: прозрачный PNG под .jpeg потерял бы фон
+                    // Расширение — по содержимому: прозрачный PNG под .jpeg потерял бы фон.
+                    // id в имени файла: стикеры грузятся подряд, и одно время в миллисекундах
+                    // дало бы двум файлам одно имя
                     image = await uploadNovaImage(image, '_' + s.id, image.startsWith('data:image/png') ? 'png' : 'jpeg');
                     s.image = image;
                 }
@@ -7118,6 +7127,8 @@ sketch or construction lines.`,
             const at = cfg.packs.findIndex(p => p.id === d.id);
             if (at >= 0) cfg.packs[at] = saved;
             else cfg.packs.push(saved);
+            // Новый пак — сразу и включаем: создали его, чтобы пользоваться
+            cfg.enabled = true;
             saveStickerSettings();
 
             if (stickerDraft === d) {
@@ -7125,7 +7136,8 @@ sketch or construction lines.`,
                 $('#nova-sticker-pack-delete').show();
                 renderStickerPackGrid();
             }
-            renderStickerSettings();
+            stickerPickerPackId = d.id;
+            renderStickerPicker();
             toastr.success(`${t('Набор')} «${name}» ${t('сохранён')}`);
         } catch (e) {
             console.error('[NOVA] Не удалось сохранить стикерпак', e);
@@ -7144,7 +7156,7 @@ sketch or construction lines.`,
             saveStickerSettings();
             stickerDraft = null;
             $('#nova-view-sticker-pack').removeClass('active');
-            renderStickerSettings();
+            renderStickerPicker();
         });
     }
 
@@ -7152,29 +7164,13 @@ sketch or construction lines.`,
         const close = () => {
             stickerDraft = null;
             $('#nova-view-sticker-pack').removeClass('active');
-            renderStickerSettings();
+            renderStickerPicker();
         };
         if (stickerDraft?.dirty) novaConfirm(t('Выйти без сохранения? Изменения в наборе пропадут.'), close, t('Выйти'));
         else close();
     }
 
     function bindStickerEvents() {
-        $('#nova-open-sticker-settings-btn').on('click', () => {
-            renderStickerSettings();
-            $('#nova-view-sticker-settings').addClass('active');
-        });
-        $('#nova-sticker-settings-back-btn').on('click', () => $('#nova-view-sticker-settings').removeClass('active'));
-
-        $('#nova-stickers-enabled').on('change', function() {
-            getStickerSettings().enabled = this.checked;
-            saveStickerSettings();
-        });
-
-        $('#nova-sticker-pack-new').on('click', () => openStickerPackEditor());
-        $('#nova-sticker-pack-list').on('click', '.nova-sticker-pack-row', function() {
-            openStickerPackEditor(String($(this).attr('data-pack')));
-        });
-
         $('#nova-sticker-pack-back-btn').on('click', closeStickerPackEditor);
         $('#nova-sticker-pack-name').on('input', function() {
             if (!stickerDraft) return;
@@ -8860,13 +8856,10 @@ sketch or construction lines.`,
         'В ответ на': 'In reply to',
         // Стикеры
         'Стикеры': 'Stickers',
-        'Стикерпаки': 'Sticker packs',
         'Стикерпак': 'Sticker pack',
         'Стикер': 'Sticker',
         'стикер': 'sticker',
-        'Свои стикерпаки для личных сообщений и бесед — отправлять их можете и вы, и персонажи.': 'Your own sticker packs for private chats and group chats — both you and the characters can send them.',
         'Стикеры включены': 'Stickers enabled',
-        'Один переключатель на все чаты. Персонаж видит стикерпак одной картинкой-коллажем с подписями и отправляет стикер по имени. Коллаж уходит модели только через профиль подключения — с главным API Таверны персонаж выбирает по одним названиям.': 'One switch for all chats. The character sees a sticker pack as a single labelled collage and sends a sticker by its name. The collage is only sent to the model through a connection profile — with the Tavern main API the character picks by names alone.',
         'Новый стикерпак': 'New sticker pack',
         'Название набора': 'Pack name',
         'Например: Котики': 'For example: Cats',
@@ -8874,8 +8867,6 @@ sketch or construction lines.`,
         'PNG или JPG, с фоном или без, до 12 штук. У каждого стикера своё имя — по нему его отправляет персонаж.': 'PNG or JPG, with or without a background, up to 12. Every sticker has its own name — the character sends it by that name.',
         'Удалить набор': 'Delete pack',
         'Так набор видит персонаж': 'How the character sees this pack',
-        'Стикерпаков пока нет — создайте их в Настройках → Стикерпаки.': 'No sticker packs yet — create them in Settings → Sticker packs.',
-        'Стикерпаков пока нет.': 'No sticker packs yet.',
         'Добавьте стикеры кнопкой «Добавить».': 'Add stickers with the "Add" button.',
         'Убрать стикер': 'Remove sticker',
         'В наборе максимум 12 стикеров — лишние не добавлены.': 'A pack holds at most 12 stickers — the extra ones were not added.',
@@ -8891,7 +8882,12 @@ sketch or construction lines.`,
         'Уже отправленные стикеры останутся в переписках.': 'Stickers already sent will stay in the chats.',
         'Выйти без сохранения? Изменения в наборе пропадут.': 'Leave without saving? Changes to the pack will be lost.',
         'Выйти': 'Leave',
-        'Стикеры выключены — включите их в Настройках → Стикерпаки.': 'Stickers are off — turn them on in Settings → Sticker packs.',
+        'Стикеры выключены — ни вы, ни персонажи их не отправляют.': 'Stickers are off — neither you nor the characters send them.',
+        'Пока нет ни одного набора.': 'No sticker packs yet.',
+        'Создать стикерпак': 'Create a sticker pack',
+        'Один переключатель на все чаты': 'One switch for all chats',
+        'Изменить набор': 'Edit pack',
+        'Коллаж уходит модели только через профиль подключения NOVA — с главным API Таверны персонаж выбирает стикеры по одним названиям.': 'The collage is only sent to the model through a NOVA connection profile — with the Tavern main API the character picks stickers by names alone.',
     };
 
     /** Перевод одной строки — для JS-строк, собираемых динамически. RU остаётся RU, если словарь молчит. */

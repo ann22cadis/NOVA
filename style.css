@@ -2781,6 +2781,30 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
     cursor: pointer;
     flex-shrink: 0;
 }
+.nova-sticker-picker-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+}
+.nova-sticker-picker-toggle {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    min-width: 0;
+}
+.nova-sticker-picker-actions {
+    display: flex;
+    flex-shrink: 0;
+}
+.nova-sticker-picker-edit,
+.nova-sticker-picker-new,
+.nova-sticker-picker-create {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
 .nova-dm-sticker {
     display: block;
     -webkit-touch-callout: none;
@@ -2835,6 +2859,58 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
         font-size: 13px !important;
         font-family: inherit !important;
         white-space: nowrap !important;
+    }
+    .nova-sticker-picker-footer {
+        gap: 8px !important;
+        padding-top: 8px !important;
+        border-top: 1px solid var(--nova-dm-border, var(--nova-border)) !important;
+    }
+    .nova-sticker-picker-toggle {
+        gap: 8px !important;
+        font-size: 13px !important;
+        color: var(--nova-dm-card-text, var(--nova-text)) !important;
+    }
+    .nova-sticker-picker-toggle input {
+        width: 16px !important;
+        height: 16px !important;
+        margin: 0 !important;
+        accent-color: var(--nova-dm-accent, var(--nova-accent)) !important;
+    }
+    .nova-sticker-picker-actions {
+        gap: 6px !important;
+    }
+    .nova-sticker-picker-edit,
+    .nova-sticker-picker-new {
+        width: 32px !important;
+        height: 32px !important;
+        padding: 0 !important;
+        border-radius: 50% !important;
+        border: 1px solid var(--nova-dm-border, var(--nova-border)) !important;
+        background: transparent !important;
+        color: var(--nova-dm-card-text, var(--nova-text)) !important;
+        font-size: 13px !important;
+    }
+    .nova-sticker-picker-edit:hover,
+    .nova-sticker-picker-new:hover {
+        background: var(--nova-dm-other-bubble, var(--nova-surface-hover)) !important;
+    }
+    .nova-sticker-picker-empty {
+        color: var(--nova-dm-muted, var(--nova-text-muted)) !important;
+        font-size: 14px !important;
+        text-align: center !important;
+        padding: 16px 8px !important;
+        line-height: 1.5 !important;
+    }
+    .nova-sticker-picker-create {
+        margin-top: 10px !important;
+        background: var(--nova-dm-accent, var(--nova-accent)) !important;
+        color: var(--nova-dm-accent-text, #fff) !important;
+        border: none !important;
+        border-radius: 999px !important;
+        padding: 8px 16px !important;
+        font-size: 14px !important;
+        font-weight: 700 !important;
+        font-family: inherit !important;
     }
     .nova-sticker-picker-tab.active {
         background: var(--nova-dm-accent, var(--nova-accent)) !important;
