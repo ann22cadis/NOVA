@@ -4019,12 +4019,180 @@ sketch or construction lines.`,
         let thumbnail = image;
         try {
             const thumbDataUrl = await makeThumbnailDataUrl(dataUrl);
-            if (thumbDataUrl) thumbnail = await uploadNovaImage(thumbDataUrl, '_thumb');
+            // Превью — в отдельную папку, чтобы в NOVA не лежало по две копии каждой картинки
+            if (thumbDataUrl) thumbnail = await saveBase64AsFile(String(thumbDataUrl).split(',')[1], NOVA_THUMB_FOLDER, `nova_${Date.now()}_thumb`, 'jpeg');
         } catch (e) {
             console.warn('[NOVA] Превью не сгенерировано, будет показываться полный файл', e);
         }
         return { image, thumbnail };
     }
+
+    // ─── Файлы картинок: удаление ненужных и уборка папки ─────────────────────
+    //
+    // Полные картинки лежат в user/images/NOVA, уменьшенные превью — отдельно, в
+    // user/images/NOVA_thumbs: иначе в папке каждая картинка видна дважды.
+    // Файл удаляется, только когда на него больше нет ни одной ссылки во всех
+    // данных NOVA — включая резервные копии ленты, другие чаты, версии картинки и
+    // стикерпаки. Поэтому картинка поста, который ещё лежит в резервной копии,
+    // остаётся до тех пор, пока копия не сменится.
+
+    const NOVA_IMAGE_FOLDER = 'NOVA';
+    const NOVA_THUMB_FOLDER = 'NOVA_thumbs';
+    const NOVA_FILE_RE = /user\/images\/NOVA(?:_thumbs)?\/[^\s"'<>)?#]+/g;
+    // Свежие файлы уборка не трогает: их могли только что загрузить, а ссылку
+    // ещё не успели записать (идёт генерация, сохраняется стикерпак)
+    const NOVA_FRESH_FILE_MS = 10 * 60 * 1000;
+
+    function collectNovaFilePaths(value) {
+        const out = new Set();
+        const seen = new WeakSet();
+        (function walk(v) {
+            if (typeof v === 'string') {
+                (v.match(NOVA_FILE_RE) || []).forEach(p => out.add(p));
+                return;
+            }
+            if (!v || typeof v !== 'object' || seen.has(v)) return;
+            seen.add(v);
+            (Array.isArray(v) ? v : Object.values(v)).forEach(walk);
+        })(value);
+        return out;
+    }
+
+    function novaReferencesJson() {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        return JSON.stringify(ctx?.extensionSettings?.NOVA || {});
+    }
+
+    async function deleteNovaFile(path) {
+        const ctx = SillyTavern.getContext();
+        const res = await fetch('/api/images/delete', {
+            method: 'POST',
+            headers: ctx.getRequestHeaders(),
+            body: JSON.stringify({ path }),
+        });
+        // 404 — файла уже нет, цель достигнута
+        return res.ok || res.status === 404;
+    }
+
+    /**
+     * Удалили пост, ответ, сообщение или переписку — убираем и их картинки из папки,
+     * если на них больше ничего не ссылается. Звать ПОСЛЕ saveFeed(): ссылки
+     * проверяются по сохранённым данным, где удалённого уже нет.
+     */
+    function releaseNovaImages(removed) {
+        const paths = collectNovaFilePaths(removed);
+        if (!paths.size) return;
+        setTimeout(async () => {
+            const refs = novaReferencesJson();
+            for (const path of paths) {
+                if (refs.includes(path)) continue;
+                try {
+                    await deleteNovaFile(path);
+                } catch (e) {
+                    console.warn('[NOVA] Не удалось удалить файл картинки', path, e);
+                }
+            }
+        }, 0);
+    }
+
+    async function listNovaImageFolder(folder) {
+        const ctx = SillyTavern.getContext();
+        const res = await fetch('/api/images/list', {
+            method: 'POST',
+            headers: ctx.getRequestHeaders(),
+            body: JSON.stringify({ folder }),
+        });
+        if (!res.ok) throw new Error(`${t('Не удалось прочитать папку')} ${folder}: ${res.status}`);
+        const files = await res.json();
+        return Array.isArray(files) ? files.map(String) : [];
+    }
+
+    const isFreshNovaFile = name => {
+        const m = String(name).match(/^nova_(\d{12,14})/);
+        return !!m && Date.now() - Number(m[1]) < NOVA_FRESH_FILE_MS;
+    };
+
+    /** Что уборка сделает: какие файлы не нужны и какие превью ещё лежат в общей папке. */
+    async function scanNovaImageFolders() {
+        saveFeed();
+        const refs = novaReferencesJson();
+        const unused = [];
+        const thumbsToMove = [];
+        for (const folder of [NOVA_IMAGE_FOLDER, NOVA_THUMB_FOLDER]) {
+            for (const name of await listNovaImageFolder(folder)) {
+                if (isFreshNovaFile(name)) continue;
+                const path = `user/images/${folder}/${name}`;
+                if (!refs.includes(path)) unused.push(path);
+                else if (folder === NOVA_IMAGE_FOLDER && /_thumb\.[a-z]+$/i.test(name)) thumbsToMove.push(path);
+            }
+        }
+        return { unused, thumbsToMove };
+    }
+
+    /** Заменяет пути во всех строках данных NOVA — после переноса превью в свою папку. */
+    function rewriteNovaPaths(pathMap) {
+        if (!pathMap.size) return 0;
+        const ctx = SillyTavern.getContext();
+        let changed = 0;
+        const seen = new WeakSet();
+        (function walk(obj) {
+            if (!obj || typeof obj !== 'object' || seen.has(obj)) return;
+            seen.add(obj);
+            for (const key of Object.keys(obj)) {
+                const v = obj[key];
+                if (typeof v === 'string' && v.includes('user/images/NOVA/')) {
+                    let next = v;
+                    for (const [from, to] of pathMap) next = next.split(from).join(to);
+                    if (next !== v) { obj[key] = next; changed++; }
+                } else if (v && typeof v === 'object') {
+                    walk(v);
+                }
+            }
+        })(ctx.extensionSettings.NOVA);
+        return changed;
+    }
+
+    async function cleanNovaImageFolders({ unused, thumbsToMove }) {
+        const ctx = SillyTavern.getContext();
+        const pathMap = new Map();
+
+        if (thumbsToMove.length) {
+            for (const oldPath of thumbsToMove) {
+                try {
+                    const name = oldPath.split('/').pop();
+                    const ext = (name.split('.').pop() || 'jpeg').toLowerCase();
+                    const base64 = await referenceToBase64(oldPath);
+                    const newPath = await saveBase64AsFile(base64, NOVA_THUMB_FOLDER, name.replace(/\.[^.]+$/, ''), ext);
+                    pathMap.set(oldPath, newPath);
+                } catch (e) {
+                    console.warn('[NOVA] Превью не перенесено, остаётся на месте', oldPath, e);
+                }
+            }
+            // Сначала переписываем ссылки, и только потом удаляем старые копии:
+            // живая лента берёт объекты из настроек, поэтому перечитываем её
+            rewriteNovaPaths(pathMap);
+            loadFeed();
+            ctx.saveSettingsDebounced();
+            // Таверна пишет настройки на диск с задержкой ~1 с — ждём, чтобы старый
+            // файл не исчез раньше, чем на диске окажется ссылка на новый
+            await new Promise(r => setTimeout(r, 2500));
+        }
+
+        const remove = async path => {
+            try {
+                return await deleteNovaFile(path);
+            } catch (e) {
+                console.warn('[NOVA] Не удалось удалить файл картинки', path, e);
+                return false;
+            }
+        };
+        let deleted = 0;
+        for (const path of unused) if (await remove(path)) deleted++;
+        // Старые копии перенесённых превью
+        for (const path of pathMap.keys()) await remove(path);
+        return { deleted, moved: pathMap.size };
+    }
+
 
     // Разметка картинки поста/сообщения — одна на все места вывода
     function renderAttachedImage(item, extraStyle = '') {
@@ -4065,7 +4233,10 @@ sketch or construction lines.`,
 
         // В разметке — только превью: полный файл открывается позже, во вьюере,
         // который сам подтянет item.image из настоящего объекта
-        const imgTag = `<img class="nova-attached-image" src="${item.thumbnail || item.image}" onclick="window.novaOpenImageViewer(this)" loading="lazy" style="${item.imageRegenerating ? '' : extraStyle}" ${dataAttrs}>`;
+        const thumbFallback = item.thumbnail && item.thumbnail !== item.image
+            ? `data-full="${escapeHtml(item.image)}" onerror="this.onerror=null;this.src=this.dataset.full"`
+            : '';
+        const imgTag = `<img class="nova-attached-image" src="${item.thumbnail || item.image}" onclick="window.novaOpenImageViewer(this)" loading="lazy" style="${item.imageRegenerating ? '' : extraStyle}" ${dataAttrs} ${thumbFallback}>`;
 
         // Перегенерация СУЩЕСТВУЮЩЕЙ картинки (🔄/✏️ во вьюере) не трогает
         // imagePending — старое изображение никуда не девается, пока не придёт
@@ -5752,8 +5923,9 @@ sketch or construction lines.`,
                 const idx = $(this).data('index');
                 novaConfirm(`${t('Вы уверены, что хотите удалить весь чат?')} ${t('Это действие необратимо.')}`, () => {
                     (dmThreads[idx]?.messages || []).forEach(revertRelationshipsDeep);
-                    dmThreads.splice(idx, 1);
+                    const [removed] = dmThreads.splice(idx, 1);
                     saveFeed();
+                    releaseNovaImages(removed);
                     renderDMs();
                 });
                 return;
@@ -6168,14 +6340,16 @@ sketch or construction lines.`,
             const label = pluralUi(indicesToDelete.length, { ru: ['сообщение', 'сообщения', 'сообщений'], en: ['message', 'messages'] });
             novaConfirm(`${t('Удалить')} ${label}? ${t('Это действие необратимо.')}`, () => {
                 indicesToDelete.sort((a, b) => b - a);
+                const removed = [];
                 indicesToDelete.forEach(idx => {
                     revertRelationshipsDeep(thread.messages[idx]);
                     revertWallpaperIfDeleted(thread, thread.messages[idx]);
                     revertThemeIfDeleted(thread, thread.messages[idx]);
-                    thread.messages.splice(idx, 1);
+                    removed.push(...thread.messages.splice(idx, 1));
                 });
 
                 saveFeed();
+                releaseNovaImages(removed);
 
                 // Exit delete mode state before re-rendering
                 $messagesContainer.removeClass('delete-mode');
@@ -8898,6 +9072,18 @@ sketch or construction lines.`,
         'Уже отправленные стикеры останутся в переписках.': 'Stickers already sent will stay in the chats.',
         'Выйти без сохранения? Изменения в наборе пропадут.': 'Leave without saving? Changes to the pack will be lost.',
         'Выйти': 'Leave',
+        'Убрать лишние картинки': 'Remove unused images',
+        'Картинки NOVA, на которые больше ничего не ссылается (удалённые посты и сообщения, старые версии, старые коллажи стикеров), удаляются из папки. Уменьшенные превью переезжают в отдельную папку NOVA_thumbs, чтобы не лежали рядом с оригиналами.': 'NOVA images nothing refers to any more (deleted posts and messages, old versions, old sticker collages) are deleted from the folder. Thumbnails move to a separate NOVA_thumbs folder so they don\'t sit next to the originals.',
+        'Проверяю папку...': 'Checking the folder...',
+        'Лишних картинок нет.': 'No unused images.',
+        'Удалить неиспользуемые картинки:': 'Delete unused images:',
+        'Перенести превью в папку NOVA_thumbs:': 'Move thumbnails to the NOVA_thumbs folder:',
+        'Картинки, которые ещё есть в ленте, переписках, стикерпаках или резервных копиях, не трогаются.': 'Images still used in the feed, chats, sticker packs or backups are left alone.',
+        'Убираю...': 'Cleaning up...',
+        'Готово. Удалено картинок:': 'Done. Images deleted:',
+        'Превью перенесено:': 'Thumbnails moved:',
+        'Убрать': 'Clean up',
+        'Не удалось прочитать папку': 'Could not read the folder',
         'Обрезать': 'Crop',
         'Обрежьте стикер': 'Crop the sticker',
         'Стикеры выключены — ни вы, ни персонажи их не отправляют.': 'Stickers are off — neither you nor the characters send them.',
@@ -9240,6 +9426,44 @@ sketch or construction lines.`,
             }
         });
 
+        $('#nova-image-cleanup-btn').on('click', async function() {
+            const $btn = $(this);
+            const $result = $('#nova-image-cleanup-result');
+            if ($btn.prop('disabled')) return;
+            $btn.prop('disabled', true);
+            $result.text(t('Проверяю папку...'));
+            try {
+                const scan = await scanNovaImageFolders();
+                if (!scan.unused.length && !scan.thumbsToMove.length) {
+                    $result.text(t('Лишних картинок нет.'));
+                    return;
+                }
+                $result.text('');
+                const parts = [];
+                if (scan.unused.length) parts.push(`${t('Удалить неиспользуемые картинки:')} ${scan.unused.length}.`);
+                if (scan.thumbsToMove.length) parts.push(`${t('Перенести превью в папку NOVA_thumbs:')} ${scan.thumbsToMove.length}.`);
+                novaConfirm(`${parts.join('<br>')}<br>${t('Картинки, которые ещё есть в ленте, переписках, стикерпаках или резервных копиях, не трогаются.')}`, async () => {
+                    $btn.prop('disabled', true);
+                    $result.text(t('Убираю...'));
+                    try {
+                        const { deleted, moved } = await cleanNovaImageFolders(scan);
+                        $result.text(`${t('Готово. Удалено картинок:')} ${deleted}. ${t('Превью перенесено:')} ${moved}.`);
+                        if ($('#nova-view-feed').hasClass('active')) renderFeed();
+                    } catch (e) {
+                        console.error('[NOVA] Уборка картинок не удалась', e);
+                        $result.text(t('Не получилось:') + ' ' + String(e.message || e));
+                    } finally {
+                        $btn.prop('disabled', false);
+                    }
+                }, t('Убрать'), 'var(--nova-accent)');
+            } catch (e) {
+                console.error('[NOVA] Проверка папки картинок не удалась', e);
+                $result.text(t('Не получилось:') + ' ' + String(e.message || e));
+            } finally {
+                $btn.prop('disabled', false);
+            }
+        });
+
         $('#nova-save-settings-btn').on('click', () => {
             const { extensionSettings, saveSettingsDebounced } = SillyTavern.getContext();
             if (!extensionSettings.NOVA) extensionSettings.NOVA = {};
@@ -9293,9 +9517,11 @@ sketch or construction lines.`,
                 toastr.warning(t('Нет постов с известной генерацией (старые посты).'));
                 return;
             }
-            feedPosts.filter(p => p.batchId === maxBatchId).forEach(revertRelationshipsDeep);
+            const removedPosts = feedPosts.filter(p => p.batchId === maxBatchId);
+            removedPosts.forEach(revertRelationshipsDeep);
             feedPosts = feedPosts.filter(p => p.batchId !== maxBatchId);
             saveFeed();
+            releaseNovaImages(removedPosts);
             renderFeed();
             toastr.success(t('Последняя генерация удалена.'));
         });
@@ -9320,12 +9546,14 @@ sketch or construction lines.`,
             novaConfirm(`${t('Удалить')} ${label} ${t('вместе со всеми ответами?')} ${t('Это действие необратимо.')}`, () => {
                 // Delete from highest index to lowest to avoid shifting issues
                 const indices = Array.from(selectedFeedPosts).sort((a, b) => b - a);
+                const removed = [];
                 indices.forEach(idx => {
                     revertRelationshipsDeep(feedPosts[idx]);
-                    feedPosts.splice(idx, 1);
+                    removed.push(...feedPosts.splice(idx, 1));
                 });
 
                 saveFeed();
+                releaseNovaImages(removed);
                 feedSelectMode = false;
                 selectedFeedPosts.clear();
                 renderFeed();
@@ -9662,6 +9890,7 @@ sketch or construction lines.`,
                         return 0;
                     });
 
+                const removed = [];
                 paths.forEach(path => {
                     let arr = post.replies;
                     for (let i = 0; i < path.length - 1; i++) {
@@ -9671,11 +9900,12 @@ sketch or construction lines.`,
                     const idx = path[path.length - 1];
                     if (idx >= 0 && idx < arr.length) {
                         revertRelationshipsDeep(arr[idx]);
-                        arr.splice(idx, 1);
+                        removed.push(...arr.splice(idx, 1));
                     }
                 });
 
                 saveFeed();
+                releaseNovaImages(removed);
                 replySelectMode = false;
                 selectedReplyKeys.clear();
                 openSinglePost(postIndex);
@@ -12237,7 +12467,7 @@ sketch or construction lines.`,
             const caption = String(item.prompt || '').trim() || `${item.source} · ${item.author}`;
             const $cell = $(`
                 <div class="nova-gallery-item" data-index="${index}" title="${escapeHtml(caption)}">
-                    <img src="${item.thumbnail || item.image}" loading="lazy" alt="">
+                    <img src="${item.thumbnail || item.image}" loading="lazy" alt="" ${item.thumbnail && item.thumbnail !== item.image ? `data-full="${escapeHtml(item.image)}" onerror="this.onerror=null;this.src=this.dataset.full"` : ''}>
                     <div class="nova-gallery-caption">${escapeHtml(item.author || '')}</div>
                 </div>
             `);
@@ -12603,14 +12833,16 @@ sketch or construction lines.`,
 
     function deleteLongPressTarget(target) {
         const wasOpenAsSinglePost = $('#nova-view-single-post').hasClass('active');
+        let removed;
         if (target.kind === 'feed-post') {
             revertRelationshipsDeep(feedPosts[target.feedIndex]);
-            feedPosts.splice(target.feedIndex, 1);
+            [removed] = feedPosts.splice(target.feedIndex, 1);
         } else {
             revertRelationshipsDeep(target.parentArray[target.replyIndex]);
-            target.parentArray.splice(target.replyIndex, 1);
+            [removed] = target.parentArray.splice(target.replyIndex, 1);
         }
         saveFeed();
+        releaseNovaImages(removed);
         // Верхний пост удалили, пока был открыт его отдельный вид — там больше
         // нечего показывать, закрываем, а не оставляем показывать несуществующий индекс
         if (wasOpenAsSinglePost && target.kind === 'feed-post') {
@@ -12744,8 +12976,9 @@ sketch or construction lines.`,
         revertRelationshipsDeep(target.message);
         revertWallpaperIfDeleted(target.thread, target.message);
         revertThemeIfDeleted(target.thread, target.message);
-        target.thread.messages.splice(target.msgIndex, 1);
+        const [removed] = target.thread.messages.splice(target.msgIndex, 1);
         saveFeed();
+        releaseNovaImages(removed);
         openSingleDM(target.threadIndex);
         toastr.success(t('Удалено.'));
     }
@@ -12791,8 +13024,10 @@ sketch or construction lines.`,
             revertWallpaperIfDeleted(thread, m);
             revertThemeIfDeleted(thread, m);
         });
-        thread.messages.splice(start, end - start);
+        // Свои фото пересохраняются ниже новыми файлами — старые копии больше не нужны
+        const removed = thread.messages.splice(start, end - start);
         saveFeed();
+        releaseNovaImages(removed);
         openSingleDM(target.threadIndex);
 
         // Картинку отдаём модели один раз — она относится к первому сообщению серии
