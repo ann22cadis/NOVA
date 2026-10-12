@@ -61,6 +61,7 @@ const RP_LANGUAGES = {
             trackShared: (fromUser, list) => `[${fromUser ? 'игрок поделился(ась)' : 'вы поделились'} треком: ${list}]`,
             imageInText: (text, prompt) => `${text} [прикреплено изображение${prompt ? `: ${prompt}` : ''}]`,
             imageOnly: prompt => `[прислал(а) изображение${prompt ? `: ${prompt}` : ''}]`,
+            sticker: (name, pack) => `[стикер «${name}»${pack ? ` из набора «${pack}»` : ''}]`,
         },
     },
     en: {
@@ -109,6 +110,7 @@ const RP_LANGUAGES = {
             trackShared: (fromUser, list) => `[${fromUser ? 'the player' : 'you'} shared a track: ${list}]`,
             imageInText: (text, prompt) => `${text} [image attached${prompt ? `: ${prompt}` : ''}]`,
             imageOnly: prompt => `[sent an image${prompt ? `: ${prompt}` : ''}]`,
+            sticker: (name, pack) => `[sticker "${name}"${pack ? ` from the "${pack}" pack` : ''}]`,
         },
     },
 };
@@ -190,6 +192,34 @@ ${protocol}` : ''}${style ? `
 
 CURRENT DEFAULT VISUAL STYLE (applied automatically when "style" is left empty — no need to restate it in "prompt"):
 ${style}` : ''}`;
+    },
+
+    /**
+     * Блок про стикеры для лички и беседы. Модель выбирает стикер по ИМЕНИ: картинки
+     * видит на листах-коллажах (подпись под каждым стикером), если они приложены к
+     * запросу, а без них — только по списку имён.
+     * @param {string} opts.packsList — готовый список «- «Пак»: имя, имя»
+     * @param {number} opts.sheetCount — сколько листов приложено последними картинками
+     * @param {'dm'|'group'} opts.target
+     */
+    stickerInstructionBlock({ packsList = '', sheetCount = 0, target = 'dm' } = {}) {
+        if (!packsList) return '';
+        const one = sheetCount === 1;
+        const sheets = sheetCount > 0
+            ? `
+The LAST ${one ? 'image' : `${sheetCount} images`} attached to this request ${one ? 'is a sticker sheet' : 'are sticker sheets'}: every sticker is drawn with its name printed under it. ${one ? 'It is' : 'They are'} NOT a photo from the user — never react to ${one ? 'it' : 'them'} as if someone sent ${one ? 'it' : 'them'}; ${one ? 'it is' : 'they are'} only there so you can see what each sticker looks like.`
+            : '';
+        const shape = target === 'group'
+            ? '{ "sender_handle": "@handle", "sticker": "exact sticker name" }'
+            : '{ "sticker": "exact sticker name" }';
+        return `
+
+STICKERS (like in Telegram) — characters can send them:${sheets}
+Available stickers, write the name EXACTLY as listed:
+${packsList}
+- To send one, add a SEPARATE message object to "messages": ${shape}. A sticker is a message of its own, with no "text". If two packs have a sticker with the same name, write it as "pack name/sticker name".
+- Pick a sticker for what it actually shows and the mood it carries, the way a real person would. Use them now and then, when it suits how this character texts — not in every reply. Never invent a name that is not in the list.
+- Stickers already sent appear in the history in square brackets with their name.`;
     },
 
     /**

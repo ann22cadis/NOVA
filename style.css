@@ -2747,3 +2747,163 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
         text-transform: inherit !important;
     }
 }
+
+/* ── Стикеры ─────────────────────────────────────────────────────────────── */
+/* Выбор стикера — над полем ввода, как подсказка команд: абсолютно, чтобы не
+   дёргать высоту переписки */
+.nova-sticker-picker {
+    position: absolute;
+    bottom: calc(100% - 4px);
+    left: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    z-index: 60;
+}
+.nova-sticker-picker-tabs {
+    display: flex;
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+.nova-sticker-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    overflow-y: auto;
+}
+.nova-sticker-picker-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+    cursor: pointer;
+}
+.nova-sticker-picker-tab {
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.nova-dm-sticker {
+    display: block;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+.nova-sticker-edit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+}
+.nova-sticker-edit-cell {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+.nova-sticker-edit-thumb {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+}
+.nova-sticker-edit-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+@layer nova-components {
+    .nova-sticker-picker {
+        background: var(--nova-dm-card, var(--nova-surface)) !important;
+        border: 1px solid var(--nova-dm-border, var(--nova-border)) !important;
+        border-radius: 12px !important;
+        padding: 8px !important;
+        gap: 8px !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+    }
+    .nova-sticker-picker-tabs {
+        gap: 6px !important;
+        padding-bottom: 2px !important;
+    }
+    .nova-sticker-picker-tab {
+        background: transparent !important;
+        border: 1px solid var(--nova-dm-border, var(--nova-border)) !important;
+        color: var(--nova-dm-card-text, var(--nova-text)) !important;
+        border-radius: 999px !important;
+        padding: 4px 12px !important;
+        font-size: 13px !important;
+        font-family: inherit !important;
+        white-space: nowrap !important;
+    }
+    .nova-sticker-picker-tab.active {
+        background: var(--nova-dm-accent, var(--nova-accent)) !important;
+        border-color: var(--nova-dm-accent, var(--nova-accent)) !important;
+        color: var(--nova-dm-accent-text, #fff) !important;
+    }
+    .nova-sticker-picker-grid {
+        gap: 6px !important;
+        max-height: 260px !important;
+    }
+    .nova-sticker-picker-item {
+        background: transparent !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 4px !important;
+        min-width: 0 !important;
+    }
+    .nova-sticker-picker-item:hover {
+        background: var(--nova-dm-other-bubble, var(--nova-surface-hover)) !important;
+    }
+    .nova-sticker-picker-item img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: contain !important;
+    }
+    .nova-dm-sticker {
+        width: 128px !important;
+        height: 128px !important;
+        max-width: 100% !important;
+        object-fit: contain !important;
+        background: transparent !important;
+        border: none !important;
+    }
+    .nova-sticker-edit-grid {
+        gap: 12px !important;
+    }
+    .nova-sticker-edit-cell {
+        gap: 6px !important;
+    }
+    .nova-sticker-edit-thumb {
+        background: var(--nova-surface-hover) !important;
+        border: 1px solid var(--nova-border) !important;
+        border-radius: 10px !important;
+    }
+    .nova-sticker-edit-thumb img {
+        max-width: 88% !important;
+        max-height: 88% !important;
+        object-fit: contain !important;
+    }
+    .nova-sticker-edit-remove {
+        width: 24px !important;
+        height: 24px !important;
+        padding: 0 !important;
+        border: none !important;
+        border-radius: 50% !important;
+        background: rgba(0, 0, 0, 0.6) !important;
+        color: #fff !important;
+        font-size: 12px !important;
+    }
+    .nova-sticker-edit-name {
+        width: 100% !important;
+        box-sizing: border-box !important;
+        background: var(--nova-surface-hover) !important;
+        border: 1px solid var(--nova-border) !important;
+        color: var(--nova-text) !important;
+        padding: 6px 8px !important;
+        border-radius: 8px !important;
+        font-size: 13px !important;
+        font-family: inherit !important;
+        outline: none !important;
+    }
+}

@@ -5732,7 +5732,7 @@ sketch or construction lines.`,
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                             <div class="nova-dm-text" style="color: var(--nova-text-muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">
-                                ${lastMsg.sender === 'user' ? `${t('Вы')}: ` : ''}${lastMsg.text}
+                                ${lastMsg.sender === 'user' ? `${t('Вы')}: ` : ''}${lastMsg.sticker ? `${t('Стикер')} «${escapeHtml(lastMsg.sticker.name)}»` : lastMsg.text}
                             </div>
                             <div style="display: flex; gap: 8px; align-items: center;">
                                 ${unreadBadge}
@@ -5986,6 +5986,7 @@ sketch or construction lines.`,
         // без сброса режим выбора «переживал» уход из треда или перерисовку (ответ NPC)
         // с уже скрытыми чекбоксами, скрытым полем ввода и висящей панелью действий
         $messagesContainer.removeClass('delete-mode insert-mode');
+        closeStickerPicker();
         $('#nova-single-dm-input-area').show();
         $('#nova-single-dm-delete-actions, #nova-single-dm-insert-actions').hide();
         $('#nova-single-dm-delete-mode-btn, #nova-single-dm-transcript-btn').css('color', 'var(--nova-text-muted)');
@@ -6030,7 +6031,7 @@ sketch or construction lines.`,
                     <div style="display: flex; align-items: center; gap: 8px; flex-direction: ${isSystemCard ? 'row' : rowDirection};">
                         <input type="checkbox" class="nova-dm-delete-checkbox" style="display: none; width: 18px; height: 18px; accent-color: #f44336; cursor: pointer; flex-shrink: 0;">
                         ${msgIndex > lastInsertedIdx ? `<input type="checkbox" class="nova-dm-insert-checkbox" style="display: none; width: 18px; height: 18px; accent-color: var(--nova-accent); cursor: pointer; flex-shrink: 0;">` : ''}
-                        ${msg.avatarSuggestion ? renderAvatarSuggestionCard(msg.avatarSuggestion, thread) : msg.wallpaperChange ? renderWallpaperChangeCard(msg.wallpaperChange, thread) : msg.themeChange ? renderThemeChangeCard(msg.themeChange, thread) : msg.transfer ? renderTransferCard(msg.transfer, isUser) : `
+                        ${msg.sticker ? renderStickerMessage(msg.sticker) : msg.avatarSuggestion ? renderAvatarSuggestionCard(msg.avatarSuggestion, thread) : msg.wallpaperChange ? renderWallpaperChangeCard(msg.wallpaperChange, thread) : msg.themeChange ? renderThemeChangeCard(msg.themeChange, thread) : msg.transfer ? renderTransferCard(msg.transfer, isUser) : `
                         <div style="background: ${bgColor}; color: ${textColor}; padding: 10px 14px; border-radius: ${borderRadius}; font-size: 15px; line-height: 1.4; word-break: break-word;">
                             ${formatPostText(msg.text)}
                             ${renderAttachedImage({...msg, type: 'dm', msgIndex: msgIndex}, msg.text ? '' : 'margin-top: 0;')}
@@ -6199,6 +6200,12 @@ sketch or construction lines.`,
         });
         $(document).off('click.novaDmPlus').on('click.novaDmPlus', e => {
             if (!$(e.target).closest('.nova-dm-plus-wrap').length) closePlusMenu();
+        });
+
+        $('#nova-dm-stickers').off('click').on('click', e => {
+            e.stopPropagation();
+            closePlusMenu();
+            openStickerPicker(index, thread);
         });
 
         $('#nova-dm-transfer').off('click').on('click', async () => {
@@ -6666,6 +6673,544 @@ sketch or construction lines.`,
         return result.trim();
     }
 
+    // ─── Стикеры ──────────────────────────────────────────────────────────────
+    //
+    // Пак — до 12 картинок с именами. Пользователь видит их как обычный стикерпак,
+    // а модели уходит один лист-коллаж на пак: стикеры сеткой, под каждым имя.
+    // Отправляет персонаж стикер по имени — отдельным сообщением { "sticker": "имя" }.
+    // Паки и переключатель общие на все чаты, в отличие от ленты и переписок.
+
+    const NOVA_STICKERS_PER_PACK = 12;
+    const NOVA_STICKER_NAME_MAX = 32;
+    const NOVA_STICKER_MAX_DIM = 512;
+
+    function getStickerSettings() {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        if (!ctx?.extensionSettings) return { enabled: false, packs: [] };
+        if (!ctx.extensionSettings.NOVA) ctx.extensionSettings.NOVA = {};
+        const store = ctx.extensionSettings.NOVA;
+        if (!store.stickers || typeof store.stickers !== 'object') store.stickers = { enabled: false, packs: [] };
+        const cfg = store.stickers;
+        cfg.enabled = cfg.enabled === true;
+        if (!Array.isArray(cfg.packs)) cfg.packs = [];
+        return cfg;
+    }
+
+    function saveStickerSettings() {
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        ctx?.saveSettingsDebounced?.();
+    }
+
+    /** Паки, из которых сейчас можно отправлять. Пусто — стикеры выключены или их нет. */
+    function getUsableStickerPacks() {
+        const cfg = getStickerSettings();
+        if (!cfg.enabled) return [];
+        return cfg.packs.filter(p => Array.isArray(p.stickers) && p.stickers.length);
+    }
+
+    const normStickerName = s => String(s ?? '').trim()
+        .replace(/^["'«»“”„]+|["'«»“”„]+$/g, '')
+        .replace(/\s+/g, ' ')
+        .toLowerCase();
+
+    // Копия в самом сообщении: пак могут потом переименовать или удалить,
+    // а отправленный стикер в переписке должен остаться как был
+    const stickerSnapshot = (pack, sticker) => ({
+        packId: pack.id,
+        packName: pack.name,
+        stickerId: sticker.id,
+        name: sticker.name,
+        image: sticker.image,
+    });
+
+    /**
+     * Стикер по имени из ответа модели: сначала точное имя по всем пакам, затем
+     * форма «пак/имя» — её просим, когда одинаковое имя есть в двух паках.
+     */
+    function resolveStickerByName(raw) {
+        const wanted = normStickerName(raw);
+        if (!wanted) return null;
+        const packs = getUsableStickerPacks();
+
+        for (const pack of packs) {
+            const hit = pack.stickers.find(s => normStickerName(s.name) === wanted);
+            if (hit) return stickerSnapshot(pack, hit);
+        }
+        const slash = wanted.indexOf('/');
+        if (slash > 0) {
+            const packName = normStickerName(wanted.slice(0, slash));
+            const name = normStickerName(wanted.slice(slash + 1));
+            const pack = packs.find(p => normStickerName(p.name) === packName);
+            const hit = pack?.stickers.find(s => normStickerName(s.name) === name);
+            if (hit) return stickerSnapshot(pack, hit);
+        }
+        return null;
+    }
+
+    const stickerSrc = path => {
+        const p = String(path || '');
+        return (p.startsWith('data:') || p.startsWith('/') || p.startsWith('http')) ? p : `/${p}`;
+    };
+
+    function loadImageElement(src) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error('Не удалось открыть изображение'));
+            img.src = src;
+        });
+    }
+
+    /** Подпись в ширину ячейки: сначала мельче шрифт, и только потом многоточие. */
+    function fitCanvasText(ctx, text, maxWidth, maxSize, minSize) {
+        let size = maxSize;
+        for (; size >= minSize; size -= 2) {
+            ctx.font = `bold ${size}px sans-serif`;
+            if (ctx.measureText(text).width <= maxWidth) return text;
+        }
+        ctx.font = `bold ${minSize}px sans-serif`;
+        let s = String(text);
+        while (s.length > 1 && ctx.measureText(`${s}…`).width > maxWidth) s = s.slice(0, -1);
+        return `${s}…`;
+    }
+
+    /**
+     * Лист для модели: стикеры пака сеткой до 4 в ряд, под каждым — имя, сверху
+     * название пака. Фон ячейки серый, а не белый: белый стикер без фона на белом
+     * просто пропал бы.
+     */
+    async function buildStickerCollage(packName, stickers) {
+        const CELL = 220, LABEL = 36, GAP = 14, HEADER = 54;
+        const cols = Math.min(4, stickers.length);
+        const rows = Math.ceil(stickers.length / cols);
+        const canvas = document.createElement('canvas');
+        canvas.width = cols * CELL + (cols + 1) * GAP;
+        canvas.height = HEADER + GAP + rows * (CELL + LABEL + GAP);
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        ctx.fillStyle = '#111111';
+        const title = fitCanvasText(ctx, packName, canvas.width - GAP * 2, 28, 18);
+        ctx.fillText(title, canvas.width / 2, HEADER / 2 + 4);
+
+        for (let i = 0; i < stickers.length; i++) {
+            const x = GAP + (i % cols) * (CELL + GAP);
+            const y = HEADER + GAP + Math.floor(i / cols) * (CELL + LABEL + GAP);
+            ctx.fillStyle = '#d9d9d9';
+            ctx.fillRect(x, y, CELL, CELL);
+            try {
+                const img = await loadImageElement(stickerSrc(stickers[i].image));
+                const scale = Math.min((CELL - 12) / img.width, (CELL - 12) / img.height);
+                const w = img.width * scale;
+                const h = img.height * scale;
+                ctx.drawImage(img, x + (CELL - w) / 2, y + (CELL - h) / 2, w, h);
+            } catch (e) {
+                console.warn(`[NOVA] Стикер «${stickers[i].name}» не попал на лист`, e);
+            }
+            ctx.fillStyle = '#111111';
+            const label = fitCanvasText(ctx, stickers[i].name, CELL, 22, 14);
+            ctx.fillText(label, x + CELL / 2, y + CELL + LABEL / 2 + 2);
+        }
+        return canvas.toDataURL('image/jpeg', 0.85);
+    }
+
+    /** Стикер из файла: не крупнее 512 px; прозрачность сохраняем (PNG), фото с фоном — JPEG. */
+    function readStickerFile(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('Не удалось прочитать файл'));
+            reader.onload = async () => {
+                try {
+                    const img = await loadImageElement(String(reader.result));
+                    const scale = Math.min(1, NOVA_STICKER_MAX_DIM / Math.max(img.width, img.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.max(1, Math.round(img.width * scale));
+                    canvas.height = Math.max(1, Math.round(img.height * scale));
+                    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                    resolve(file.type === 'image/jpeg'
+                        ? canvas.toDataURL('image/jpeg', 0.88)
+                        : canvas.toDataURL('image/png'));
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function stickerNameFromFile(fileName, taken) {
+        const base = String(fileName || '')
+            .replace(/\.[^.]+$/, '')
+            .replace(/[_-]+/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, NOVA_STICKER_NAME_MAX) || t('стикер');
+        let name = base;
+        for (let n = 2; taken.has(normStickerName(name)); n++) {
+            name = `${base.slice(0, NOVA_STICKER_NAME_MAX - 3)} ${n}`;
+        }
+        return name;
+    }
+
+    // Пути листов уникальны (в имени файла время сохранения) — кэш не устаревает
+    const stickerSheetCache = new Map();
+    async function stickerSheetDataUrl(path) {
+        if (stickerSheetCache.has(path)) return stickerSheetCache.get(path);
+        const dataUrl = `data:image/jpeg;base64,${await referenceToBase64(path)}`;
+        stickerSheetCache.set(path, dataUrl);
+        return dataUrl;
+    }
+
+    /**
+     * Блок про стикеры и листы-коллажи к запросу лички/беседы. Листы прикладываем
+     * только при профиле подключения: главный API Таверны картинки не передаёт и
+     * на каждый ответ показывал бы предупреждение — там модель выбирает по именам.
+     */
+    async function prepareStickerContext(isGroup) {
+        const packs = getUsableStickerPacks();
+        if (!packs.length) return { instruction: '', images: [] };
+
+        const packsList = packs
+            .map(p => `- "${p.name}": ${p.stickers.map(s => s.name).join(', ')}`)
+            .join('\n');
+
+        const images = [];
+        const ctx = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
+        if (getSelectedConnectionProfile(ctx)) {
+            for (const pack of packs) {
+                if (!pack.collage) continue;
+                try {
+                    images.push(await stickerSheetDataUrl(pack.collage));
+                } catch (e) {
+                    console.warn(`[NOVA] Лист стикеров «${pack.name}» не прочитан — модель выберет по имени`, e);
+                }
+            }
+        }
+        return {
+            instruction: NovaPrompts.stickerInstructionBlock({ packsList, sheetCount: images.length, target: isGroup ? 'group' : 'dm' }),
+            images,
+        };
+    }
+
+    function renderStickerMessage(sticker) {
+        const name = escapeHtml(sticker?.name || '');
+        return `<img class="nova-dm-sticker" src="${escapeHtml(stickerSrc(sticker?.image))}" alt="${name}" title="${name}" loading="lazy" draggable="false">`;
+    }
+
+    // ── Выбор стикера в переписке ──
+
+    let stickerPickerPackId = null;
+
+    function closeStickerPicker() {
+        $('#nova-dm-sticker-picker').remove();
+        $(document).off('click.novaStickerPicker');
+    }
+
+    function openStickerPicker(index, thread) {
+        closeStickerPicker();
+        // Пункт в «+» виден всегда — так проще найти, где включаются стикеры
+        if (!getStickerSettings().enabled) {
+            toastr.info(t('Стикеры выключены — включите их в Настройках → Стикерпаки.'));
+            return;
+        }
+        const packs = getUsableStickerPacks();
+        if (!packs.length) {
+            toastr.info(t('Стикерпаков пока нет — создайте их в Настройках → Стикерпаки.'));
+            return;
+        }
+        if (!packs.some(p => p.id === stickerPickerPackId)) stickerPickerPackId = packs[0].id;
+
+        const $picker = $('<div id="nova-dm-sticker-picker" class="nova-sticker-picker"></div>');
+        const render = () => {
+            const pack = packs.find(p => p.id === stickerPickerPackId) || packs[0];
+            $picker.html(`
+                <div class="nova-sticker-picker-tabs">
+                    ${packs.map(p => `<button type="button" class="nova-sticker-picker-tab ${p.id === pack.id ? 'active' : ''}" data-pack="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`).join('')}
+                </div>
+                <div class="nova-sticker-picker-grid">
+                    ${pack.stickers.map(s => `<button type="button" class="nova-sticker-picker-item" data-sticker="${escapeHtml(s.id)}" title="${escapeHtml(s.name)}"><img src="${escapeHtml(stickerSrc(s.image))}" alt="" draggable="false"></button>`).join('')}
+                </div>
+            `);
+        };
+        render();
+        $('#nova-single-dm-input-bar').append($picker);
+
+        $picker.on('click', '.nova-sticker-picker-tab', function(e) {
+            e.stopPropagation();
+            stickerPickerPackId = String($(this).attr('data-pack'));
+            render();
+        });
+        $picker.on('click', '.nova-sticker-picker-item', function(e) {
+            e.stopPropagation();
+            const pack = packs.find(p => p.id === stickerPickerPackId);
+            const sticker = pack?.stickers.find(s => s.id === String($(this).attr('data-sticker')));
+            if (pack && sticker) sendUserSticker(index, thread, pack, sticker);
+        });
+        // Со следующего тика: иначе тот же клик, что открыл выбор, сразу бы его закрыл
+        setTimeout(() => {
+            $(document).on('click.novaStickerPicker', e => {
+                if (!$(e.target).closest('#nova-dm-sticker-picker, #nova-dm-stickers').length) closeStickerPicker();
+            });
+        }, 0);
+    }
+
+    // Стикер уходит сразу, как в мессенджерах; набранный текст остаётся в поле
+    function sendUserSticker(index, thread, pack, sticker) {
+        if (isDMGenerating(thread)) {
+            toastr.info(t('Дождитесь ответа — по этой переписке уже идёт генерация.'));
+            return;
+        }
+        closeStickerPicker();
+        thread.messages.push({
+            text: '',
+            sticker: stickerSnapshot(pack, sticker),
+            sender: 'user',
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        });
+        saveFeed();
+        openSingleDM(index);
+        generateDMResponse(index);
+    }
+
+    // ── Экран стикерпаков и редактор пака ──
+
+    // Редактируемый пак. Новые картинки до сохранения живут тут data URL —
+    // в папку пользователя попадают только при «Сохранить», без брошенных файлов
+    let stickerDraft = null;
+
+    function renderStickerSettings() {
+        const cfg = getStickerSettings();
+        $('#nova-stickers-enabled').prop('checked', cfg.enabled);
+        const $list = $('#nova-sticker-pack-list').empty();
+        if (!cfg.packs.length) {
+            $list.append(`<div style="color: var(--nova-text-muted); font-size: 14px; text-align: center; padding: 16px;">${t('Стикерпаков пока нет.')}</div>`);
+            return;
+        }
+        cfg.packs.forEach(pack => {
+            const preview = pack.stickers.slice(0, 4)
+                .map(s => `<img src="${escapeHtml(stickerSrc(s.image))}" alt="" style="width: 40px; height: 40px; object-fit: contain;">`)
+                .join('');
+            $list.append(`
+                <div class="nova-sticker-pack-row" data-pack="${escapeHtml(pack.id)}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); cursor: pointer;">
+                    <div style="display: flex; gap: 4px; flex-shrink: 0;">${preview}</div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div class="nova-truncate" style="font-weight: 700; font-size: 15px;">${escapeHtml(pack.name)}</div>
+                        <div style="font-size: 13px; color: var(--nova-text-muted);">${pluralUi(pack.stickers.length, { ru: ['стикер', 'стикера', 'стикеров'], en: ['sticker', 'stickers'] })}</div>
+                    </div>
+                    <i class="fa-solid fa-chevron-right" style="color: var(--nova-text-muted);"></i>
+                </div>
+            `);
+        });
+    }
+
+    function openStickerPackEditor(packId = null) {
+        const pack = packId ? getStickerSettings().packs.find(p => p.id === packId) : null;
+        stickerDraft = pack
+            ? { id: pack.id, isNew: false, savedName: pack.name, name: pack.name, collage: pack.collage || '', stickers: pack.stickers.map(s => ({ ...s })), dirty: false }
+            : { id: `stpack_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, isNew: true, savedName: '', name: '', collage: '', stickers: [], dirty: false };
+        $('#nova-sticker-pack-name').val(stickerDraft.name);
+        $('#nova-sticker-pack-delete').toggle(!stickerDraft.isNew);
+        renderStickerPackGrid();
+        $('#nova-view-sticker-pack').addClass('active');
+    }
+
+    function renderStickerPackGrid() {
+        const d = stickerDraft;
+        if (!d) return;
+        const full = d.stickers.length >= NOVA_STICKERS_PER_PACK;
+        $('#nova-sticker-pack-count').text(` (${d.stickers.length}/${NOVA_STICKERS_PER_PACK})`);
+        $('#nova-sticker-pack-add').prop('disabled', full).css('opacity', full ? 0.5 : 1);
+
+        const $grid = $('#nova-sticker-pack-grid').empty();
+        if (!d.stickers.length) {
+            $grid.append(`<div style="grid-column: 1 / -1; color: var(--nova-text-muted); font-size: 14px; text-align: center; padding: 16px;">${t('Добавьте стикеры кнопкой «Добавить».')}</div>`);
+        }
+        d.stickers.forEach(s => {
+            $grid.append(`
+                <div class="nova-sticker-edit-cell" data-sticker="${escapeHtml(s.id)}">
+                    <div class="nova-sticker-edit-thumb">
+                        <img src="${escapeHtml(stickerSrc(s.image))}" alt="" draggable="false">
+                        <button type="button" class="nova-sticker-edit-remove" title="${t('Убрать стикер')}"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <input type="text" class="nova-sticker-edit-name" maxlength="${NOVA_STICKER_NAME_MAX}" value="${escapeHtml(s.name)}" placeholder="${t('Имя')}">
+                </div>
+            `);
+        });
+        $('#nova-sticker-pack-collage-wrap').css('display', d.collage ? 'flex' : 'none');
+        $('#nova-sticker-pack-collage').attr('src', d.collage ? stickerSrc(d.collage) : '');
+    }
+
+    // Любая правка делает сохранённый лист устаревшим — прячем его до «Сохранить»
+    function markStickerDraftChanged() {
+        if (!stickerDraft) return;
+        stickerDraft.dirty = true;
+        if (stickerDraft.collage) {
+            stickerDraft.collage = '';
+            $('#nova-sticker-pack-collage-wrap').css('display', 'none');
+        }
+    }
+
+    async function addStickerFiles(files) {
+        const d = stickerDraft;
+        if (!d) return;
+        const room = NOVA_STICKERS_PER_PACK - d.stickers.length;
+        const list = [...files].filter(f => /^image\//.test(f.type));
+        if (!list.length) return;
+        if (list.length > room) toastr.warning(t('В наборе максимум 12 стикеров — лишние не добавлены.'));
+
+        const taken = new Set(d.stickers.map(s => normStickerName(s.name)));
+        for (const file of list.slice(0, Math.max(0, room))) {
+            try {
+                const image = await readStickerFile(file);
+                const name = stickerNameFromFile(file.name, taken);
+                taken.add(normStickerName(name));
+                d.stickers.push({ id: `st_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, name, image });
+            } catch (e) {
+                console.warn('[NOVA] Стикер не прочитан', file.name, e);
+                toastr.error(`${t('Не удалось прочитать файл:')} ${file.name}`);
+            }
+        }
+        // Пока читались файлы, редактор могли закрыть или открыть другой пак
+        if (stickerDraft !== d) return;
+        markStickerDraftChanged();
+        renderStickerPackGrid();
+    }
+
+    async function saveStickerPackDraft() {
+        const d = stickerDraft;
+        const $btn = $('#nova-sticker-pack-save');
+        if (!d || $btn.prop('disabled')) return;
+
+        const name = String(d.name || '').trim();
+        if (!name) return toastr.warning(t('Назовите набор.'));
+        if (!d.stickers.length) return toastr.warning(t('Добавьте хотя бы один стикер.'));
+        const seen = new Set();
+        for (const s of d.stickers) {
+            const stickerName = String(s.name || '').trim();
+            if (!stickerName) return toastr.warning(t('У каждого стикера должно быть имя.'));
+            const key = normStickerName(stickerName);
+            if (seen.has(key)) return toastr.warning(`${t('Имя повторяется:')} «${stickerName}»`);
+            seen.add(key);
+        }
+        const cfg = getStickerSettings();
+        if (cfg.packs.some(p => p.id !== d.id && normStickerName(p.name) === normStickerName(name))) {
+            return toastr.warning(t('Набор с таким названием уже есть.'));
+        }
+
+        $btn.prop('disabled', true).text(t('Сохраняю...'));
+        try {
+            const stickers = [];
+            for (const s of d.stickers) {
+                let image = s.image;
+                if (String(image).startsWith('data:')) {
+                    // Расширение — по содержимому: прозрачный PNG под .jpeg потерял бы фон
+                    image = await uploadNovaImage(image, '_' + s.id, image.startsWith('data:image/png') ? 'png' : 'jpeg');
+                    s.image = image;
+                }
+                stickers.push({ id: s.id, name: String(s.name).trim(), image });
+            }
+            const collage = await uploadNovaImage(await buildStickerCollage(name, stickers), '_' + d.id);
+
+            const saved = { id: d.id, name, stickers, collage };
+            const at = cfg.packs.findIndex(p => p.id === d.id);
+            if (at >= 0) cfg.packs[at] = saved;
+            else cfg.packs.push(saved);
+            saveStickerSettings();
+
+            if (stickerDraft === d) {
+                Object.assign(d, { isNew: false, savedName: name, name, collage, dirty: false, stickers: stickers.map(s => ({ ...s })) });
+                $('#nova-sticker-pack-delete').show();
+                renderStickerPackGrid();
+            }
+            renderStickerSettings();
+            toastr.success(`${t('Набор')} «${name}» ${t('сохранён')}`);
+        } catch (e) {
+            console.error('[NOVA] Не удалось сохранить стикерпак', e);
+            toastr.error(`${t('Не удалось сохранить набор:')} ${e.message || ''}`);
+        } finally {
+            $btn.prop('disabled', false).text(t('Сохранить'));
+        }
+    }
+
+    function deleteStickerPackDraft() {
+        const d = stickerDraft;
+        if (!d || d.isNew) return;
+        novaConfirm(`${t('Удалить набор')} «${escapeHtml(d.savedName)}»? ${t('Уже отправленные стикеры останутся в переписках.')}`, () => {
+            const cfg = getStickerSettings();
+            cfg.packs = cfg.packs.filter(p => p.id !== d.id);
+            saveStickerSettings();
+            stickerDraft = null;
+            $('#nova-view-sticker-pack').removeClass('active');
+            renderStickerSettings();
+        });
+    }
+
+    function closeStickerPackEditor() {
+        const close = () => {
+            stickerDraft = null;
+            $('#nova-view-sticker-pack').removeClass('active');
+            renderStickerSettings();
+        };
+        if (stickerDraft?.dirty) novaConfirm(t('Выйти без сохранения? Изменения в наборе пропадут.'), close, t('Выйти'));
+        else close();
+    }
+
+    function bindStickerEvents() {
+        $('#nova-open-sticker-settings-btn').on('click', () => {
+            renderStickerSettings();
+            $('#nova-view-sticker-settings').addClass('active');
+        });
+        $('#nova-sticker-settings-back-btn').on('click', () => $('#nova-view-sticker-settings').removeClass('active'));
+
+        $('#nova-stickers-enabled').on('change', function() {
+            getStickerSettings().enabled = this.checked;
+            saveStickerSettings();
+        });
+
+        $('#nova-sticker-pack-new').on('click', () => openStickerPackEditor());
+        $('#nova-sticker-pack-list').on('click', '.nova-sticker-pack-row', function() {
+            openStickerPackEditor(String($(this).attr('data-pack')));
+        });
+
+        $('#nova-sticker-pack-back-btn').on('click', closeStickerPackEditor);
+        $('#nova-sticker-pack-name').on('input', function() {
+            if (!stickerDraft) return;
+            stickerDraft.name = $(this).val();
+            markStickerDraftChanged();
+        });
+
+        $('#nova-sticker-pack-add').on('click', () => {
+            if (stickerDraft && stickerDraft.stickers.length < NOVA_STICKERS_PER_PACK) $('#nova-sticker-pack-files').trigger('click');
+        });
+        $('#nova-sticker-pack-files').on('change', async function() {
+            const files = [...(this.files || [])];
+            this.value = '';
+            await addStickerFiles(files);
+        });
+
+        // Имя правим без перерисовки сетки — иначе поле теряло бы фокус на каждой букве
+        $('#nova-sticker-pack-grid').on('input', '.nova-sticker-edit-name', function() {
+            const id = String($(this).closest('.nova-sticker-edit-cell').attr('data-sticker'));
+            const sticker = stickerDraft?.stickers.find(s => s.id === id);
+            if (!sticker) return;
+            sticker.name = $(this).val();
+            markStickerDraftChanged();
+        });
+        $('#nova-sticker-pack-grid').on('click', '.nova-sticker-edit-remove', function() {
+            if (!stickerDraft) return;
+            const id = String($(this).closest('.nova-sticker-edit-cell').attr('data-sticker'));
+            stickerDraft.stickers = stickerDraft.stickers.filter(s => s.id !== id);
+            markStickerDraftChanged();
+            renderStickerPackGrid();
+        });
+
+        $('#nova-sticker-pack-save').on('click', saveStickerPackDraft);
+        $('#nova-sticker-pack-delete').on('click', deleteStickerPackDraft);
+    }
+
     /**
      * Сообщение ЛС одной строкой — для истории переписки в промпте и для вставки в чат.
      * Служебные пометки на языке ролевой: в чат они попадают как есть.
@@ -6688,6 +7233,9 @@ sketch or construction lines.`,
             // Названия тем — часть интерфейса и пока только русские; английской
             // ролевой отдаём id темы («forest»), он и так человекочитаемый
             return c.themeSet(L.code === 'ru' ? theme.name : theme.id);
+        }
+        if (msg?.sticker) {
+            return c.sticker(msg.sticker.name, msg.sticker.packName);
         }
         if (msg?.transfer) {
             const amount = formatMoney(msg.transfer.amount, msg.transfer.currency, L.locale);
@@ -7058,6 +7606,7 @@ sketch or construction lines.`,
         
         let profileInfo = '';
         let prompt = '';
+        const stickerCtx = await prepareStickerContext(!!thread.isGroup);
 
         if (thread.isGroup) {
             const participantsProfiles = activeProfiles.filter(p => thread.participants.includes(p.handle));
@@ -7069,7 +7618,7 @@ sketch or construction lines.`,
             }).join('\n');
 
             const chatContext = await getChatContext();
-            prompt = NovaPrompts.generateGroupDMReply(profileInfo, messageHistory, chatContext, userInfo, thread.name, !!imageDataUrl, buildFeedContextForDM(userProfile.handle), buildImageInstruction('dm') + buildRelationshipInstruction(userProfile.handle, 'dm') + buildAvatarSuggestionInstruction(thread) + buildMusicInstruction() + buildUserCommandInstruction(userCommand));
+            prompt = NovaPrompts.generateGroupDMReply(profileInfo, messageHistory, chatContext, userInfo, thread.name, !!imageDataUrl, buildFeedContextForDM(userProfile.handle), buildImageInstruction('dm') + buildRelationshipInstruction(userProfile.handle, 'dm') + buildAvatarSuggestionInstruction(thread) + buildMusicInstruction() + buildUserCommandInstruction(userCommand) + stickerCtx.instruction);
         } else {
             const profile = activeProfiles.find(ap => ap.handle.toLowerCase() === thread.handle.toLowerCase());
             
@@ -7082,7 +7631,7 @@ sketch or construction lines.`,
             }).join('\n');
 
             const chatContext = await getChatContext();
-            prompt = NovaPrompts.generateDMReply(profileInfo, messageHistory, chatContext, userInfo, !!imageDataUrl, buildFeedContextForDM(userProfile.handle), buildImageInstruction('dm') + buildRelationshipInstruction(userProfile.handle, 'dm') + buildAvatarSuggestionInstruction(thread) + buildMusicInstruction() + buildUserCommandInstruction(userCommand));
+            prompt = NovaPrompts.generateDMReply(profileInfo, messageHistory, chatContext, userInfo, !!imageDataUrl, buildFeedContextForDM(userProfile.handle), buildImageInstruction('dm') + buildRelationshipInstruction(userProfile.handle, 'dm') + buildAvatarSuggestionInstruction(thread) + buildMusicInstruction() + buildUserCommandInstruction(userCommand) + stickerCtx.instruction);
         }
 
         // Add a loading indicator in the thread
@@ -7102,7 +7651,9 @@ sketch or construction lines.`,
         $messagesContainer.scrollTop($messagesContainer[0].scrollHeight);
 
         try {
-            const data = await callAIForJson(prompt, imageDataUrl ? [imageDataUrl] : [], d => d && (d.text || d.messages));
+            // Листы стикеров — последними: промпт так и говорит модели, где они
+            const requestImages = [...(imageDataUrl ? [imageDataUrl] : []), ...stickerCtx.images];
+            const data = await callAIForJson(prompt, requestImages, d => d && (d.text || d.messages));
 
             $loader.remove();
 
@@ -7188,8 +7739,29 @@ sketch or construction lines.`,
                 // "text" — это ожидаемо для одиночного фото. Раньше пустой text без
                 // перевода отбрасывал сообщение целиком, теряя это самое фото.
                 const hasImagePrompt = typeof msgItem === 'object' && !!String(msgItem.image_prompt || '').trim();
+                // Неизвестное имя или выключенные стикеры — поле просто игнорируется
+                const sticker = typeof msgItem === 'object' ? resolveStickerByName(msgItem.sticker) : null;
 
-                if (!text && !hasTransfer && !hasImagePrompt) return;
+                if (!text && !hasTransfer && !hasImagePrompt && !sticker) return;
+
+                const pushSticker = () => {
+                    if (!sticker) return;
+                    const stickerMsg = {
+                        text: '',
+                        sticker,
+                        sender: 'npc',
+                        sender_name: senderName,
+                        sender_handle: senderHandle,
+                        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    };
+                    thread.messages.push(stickerMsg);
+                    addedMessages.push(stickerMsg);
+                };
+                // Стикер без текста — сообщение целиком; с текстом — отдельным следом за ним
+                if (!text && !hasTransfer && !hasImagePrompt) {
+                    pushSticker();
+                    return;
+                }
 
                 const transferCurrency = resolveTransferCurrency(msgItem?.transfer?.currency, thread);
 
@@ -7210,6 +7782,7 @@ sketch or construction lines.`,
                 };
                 thread.messages.push(added);
                 addedMessages.push(added);
+                pushSticker();
 
                 // Про перевод не уведомляем: карточка в переписке и так его показывает
             });
@@ -8285,6 +8858,40 @@ sketch or construction lines.`,
         'Загрузить шапку профиля': 'Upload a profile banner',
         'Здесь пока нет записей.': 'Nothing posted here yet.',
         'В ответ на': 'In reply to',
+        // Стикеры
+        'Стикеры': 'Stickers',
+        'Стикерпаки': 'Sticker packs',
+        'Стикерпак': 'Sticker pack',
+        'Стикер': 'Sticker',
+        'стикер': 'sticker',
+        'Свои стикерпаки для личных сообщений и бесед — отправлять их можете и вы, и персонажи.': 'Your own sticker packs for private chats and group chats — both you and the characters can send them.',
+        'Стикеры включены': 'Stickers enabled',
+        'Один переключатель на все чаты. Персонаж видит стикерпак одной картинкой-коллажем с подписями и отправляет стикер по имени. Коллаж уходит модели только через профиль подключения — с главным API Таверны персонаж выбирает по одним названиям.': 'One switch for all chats. The character sees a sticker pack as a single labelled collage and sends a sticker by its name. The collage is only sent to the model through a connection profile — with the Tavern main API the character picks by names alone.',
+        'Новый стикерпак': 'New sticker pack',
+        'Название набора': 'Pack name',
+        'Например: Котики': 'For example: Cats',
+        'Добавить': 'Add',
+        'PNG или JPG, с фоном или без, до 12 штук. У каждого стикера своё имя — по нему его отправляет персонаж.': 'PNG or JPG, with or without a background, up to 12. Every sticker has its own name — the character sends it by that name.',
+        'Удалить набор': 'Delete pack',
+        'Так набор видит персонаж': 'How the character sees this pack',
+        'Стикерпаков пока нет — создайте их в Настройках → Стикерпаки.': 'No sticker packs yet — create them in Settings → Sticker packs.',
+        'Стикерпаков пока нет.': 'No sticker packs yet.',
+        'Добавьте стикеры кнопкой «Добавить».': 'Add stickers with the "Add" button.',
+        'Убрать стикер': 'Remove sticker',
+        'В наборе максимум 12 стикеров — лишние не добавлены.': 'A pack holds at most 12 stickers — the extra ones were not added.',
+        'Не удалось прочитать файл:': 'Could not read the file:',
+        'Назовите набор.': 'Give the pack a name.',
+        'Добавьте хотя бы один стикер.': 'Add at least one sticker.',
+        'У каждого стикера должно быть имя.': 'Every sticker needs a name.',
+        'Имя повторяется:': 'Duplicate name:',
+        'Набор с таким названием уже есть.': 'A pack with this name already exists.',
+        'Сохраняю...': 'Saving...',
+        'Набор': 'Pack',
+        'Не удалось сохранить набор:': 'Could not save the pack:',
+        'Уже отправленные стикеры останутся в переписках.': 'Stickers already sent will stay in the chats.',
+        'Выйти без сохранения? Изменения в наборе пропадут.': 'Leave without saving? Changes to the pack will be lost.',
+        'Выйти': 'Leave',
+        'Стикеры выключены — включите их в Настройках → Стикерпаки.': 'Stickers are off — turn them on in Settings → Sticker packs.',
     };
 
     /** Перевод одной строки — для JS-строк, собираемых динамически. RU остаётся RU, если словарь молчит. */
@@ -8340,6 +8947,7 @@ sketch or construction lines.`,
                 bindPhotoPermissionEvents();
                 bindRelationshipEvents();
                 bindMusicShareEvents();
+                bindStickerEvents();
             } catch (err) {
                 console.error("[NOVA] Error loading template:", err);
                 return;
@@ -12125,7 +12733,7 @@ sketch or construction lines.`,
             // Карточка перевода денег живёт в text: '' + transfer: {...} — если не
             // перенести transfer сюда, пересборка ниже даст пустое сообщение без
             // текста И без карточки, которое зависает в отправке (баг с "ломается").
-            batch.push({ text: String(m.text || ''), imageDataUrl, transfer: m.transfer ? { ...m.transfer } : undefined });
+            batch.push({ text: String(m.text || ''), imageDataUrl, transfer: m.transfer ? { ...m.transfer } : undefined, sticker: m.sticker ? { ...m.sticker } : undefined });
         }
 
         // Убираем весь блок юзера и всё, что шло ПОСЛЕ него до следующего сообщения
@@ -12163,6 +12771,7 @@ sketch or construction lines.`,
                 thumbnail: imageThumbForNext || undefined,
                 userPhoto: !!imagePathForNext || undefined,
                 transfer: item.transfer,
+                sticker: item.sticker,
                 sender: 'user',
                 time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             });

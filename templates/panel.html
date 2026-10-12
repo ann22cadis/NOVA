@@ -360,6 +360,16 @@
                     <!-- Sync group moved to History tab -->
 
                     <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 12px; background: var(--nova-inset); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
+                        <div style="font-weight: 700; font-size: 16px; border-bottom: 1px solid var(--nova-border); padding-bottom: 8px;">Стикеры</div>
+                        <div style="font-size: 14px; color: var(--nova-text-muted);">
+                            Свои стикерпаки для личных сообщений и бесед — отправлять их можете и вы, и персонажи.
+                        </div>
+                        <button id="nova-open-sticker-settings-btn" style="width: 100%; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <i class="fa-solid fa-note-sticky"></i> Стикерпаки
+                        </button>
+                    </div>
+
+                    <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 12px; background: var(--nova-inset); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
                         <div style="font-weight: 700; font-size: 16px; border-bottom: 1px solid var(--nova-border); padding-bottom: 8px;">Хранилище</div>
                         <div style="font-size: 14px; color: var(--nova-text-muted);">
                             Аватарки, загруженные до перехода на хранение файлом, а также их старые копии в ленте и переписке — переносит в файлы и убирает дубли, ничего не удаляя безвозвратно.
@@ -424,6 +434,70 @@
                     </details>
 
                     <div id="nova-relationship-list" style="display: flex; flex-direction: column; gap: 12px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Стикерпаки: список и общий переключатель -->
+        <div id="nova-view-sticker-settings" class="nova-folder-overlay" style="background: var(--nova-bg); z-index: 180;">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: var(--nova-dm-header-bg); backdrop-filter: blur(10px);">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                    <div class="nova-icon-btn" id="nova-sticker-settings-back-btn" title="Назад" style="background: transparent; flex-shrink: 0;">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </div>
+                    <div class="nova-header-title nova-truncate" style="font-size: 16px;">Стикерпаки</div>
+                </div>
+            </div>
+            <div class="nova-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                        <input type="checkbox" id="nova-stickers-enabled" style="accent-color: var(--nova-accent); width: 18px; height: 18px;">
+                        <span style="color: var(--nova-text-muted); font-size: 14px;">Стикеры включены</span>
+                    </label>
+                    <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">
+                        Один переключатель на все чаты. Персонаж видит стикерпак одной картинкой-коллажем с подписями и отправляет стикер по имени. Коллаж уходит модели только через профиль подключения — с главным API Таверны персонаж выбирает по одним названиям.
+                    </span>
+                </div>
+                <div id="nova-sticker-pack-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+                <button id="nova-sticker-pack-new" style="width: 100%; background: var(--nova-accent); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-plus"></i> Новый стикерпак
+                </button>
+            </div>
+        </div>
+
+        <!-- Редактор одного стикерпака -->
+        <div id="nova-view-sticker-pack" class="nova-folder-overlay" style="background: var(--nova-bg); z-index: 181;">
+            <div class="nova-header" style="position: sticky; top: 0; z-index: 10; background: var(--nova-dm-header-bg); backdrop-filter: blur(10px);">
+                <div style="display: flex; align-items: center; gap: 12px; min-width: 0;">
+                    <div class="nova-icon-btn" id="nova-sticker-pack-back-btn" title="Назад" style="background: transparent; flex-shrink: 0;">
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </div>
+                    <div class="nova-header-title nova-truncate" style="font-size: 16px;">Стикерпак</div>
+                </div>
+            </div>
+            <div class="nova-content" style="padding: 16px; display: flex; flex-direction: column; gap: 16px;">
+                <label style="display: flex; flex-direction: column; gap: 8px;">
+                    <span style="color: var(--nova-text-muted); font-size: 14px;">Название набора</span>
+                    <input type="text" id="nova-sticker-pack-name" maxlength="40" placeholder="Например: Котики" style="width: 100%; box-sizing: border-box; background: var(--nova-surface-hover); border: 1px solid var(--nova-border); color: var(--nova-text); padding: 10px 12px; border-radius: 8px; outline: none; font-size: 14px; font-family: inherit;">
+                </label>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+                    <span style="color: var(--nova-text-muted); font-size: 14px;">Стикеры <span id="nova-sticker-pack-count"></span></span>
+                    <button id="nova-sticker-pack-add" style="background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-plus"></i> Добавить
+                    </button>
+                    <input type="file" id="nova-sticker-pack-files" accept="image/png,image/jpeg,image/webp,image/gif" multiple style="display: none;">
+                </div>
+                <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4; margin-top: -8px;">
+                    PNG или JPG, с фоном или без, до 12 штук. У каждого стикера своё имя — по нему его отправляет персонаж.
+                </span>
+                <div id="nova-sticker-pack-grid" class="nova-sticker-edit-grid"></div>
+                <div style="display: flex; gap: 12px;">
+                    <button id="nova-sticker-pack-delete" style="flex: 1; background: transparent; color: #f44336; border: 1px solid #f44336; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer;">Удалить набор</button>
+                    <button id="nova-sticker-pack-save" style="flex: 2; background: var(--nova-accent); color: white; border: none; padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer;">Сохранить</button>
+                </div>
+                <div id="nova-sticker-pack-collage-wrap" style="display: none; flex-direction: column; gap: 8px;">
+                    <span style="color: var(--nova-text-muted); font-size: 14px;">Так набор видит персонаж</span>
+                    <img id="nova-sticker-pack-collage" alt="" style="width: 100%; border-radius: 8px; border: 1px solid var(--nova-border);">
                 </div>
             </div>
         </div>
@@ -719,6 +793,7 @@
                             <button type="button" id="nova-dm-plus" class="nova-icon-btn" title="Прикрепить" style="width: 40px; height: 40px;"><i class="fa-solid fa-plus"></i></button>
                             <div id="nova-dm-plus-menu" class="nova-dm-plus-menu">
                                 <button type="button" id="nova-dm-attach" class="nova-dm-plus-item"><i class="fa-solid fa-image"></i><span>Фото</span></button>
+                                <button type="button" id="nova-dm-stickers" class="nova-dm-plus-item"><i class="fa-solid fa-note-sticky"></i><span>Стикеры</span></button>
                                 <button type="button" id="nova-dm-transfer" class="nova-dm-plus-item"><i class="fa-solid fa-money-bill-transfer"></i><span>Перевод</span></button>
                                 <button type="button" id="nova-dm-suggest-avatar" class="nova-dm-plus-item"><i class="fa-solid fa-image-portrait"></i><span>Предложить аватар</span></button>
                                 <button type="button" id="nova-dm-set-wallpaper" class="nova-dm-plus-item"><i class="fa-solid fa-panorama"></i><span>Обои чата</span></button>
