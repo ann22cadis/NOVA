@@ -6879,7 +6879,7 @@ sketch or construction lines.`,
     function getUsableStickerPacks() {
         const cfg = getStickerSettings();
         if (!cfg.enabled) return [];
-        return cfg.packs.filter(p => Array.isArray(p.stickers) && p.stickers.length);
+        return cfg.packs.filter(p => p.enabled !== false && Array.isArray(p.stickers) && p.stickers.length);
     }
 
     const normStickerName = s => String(s ?? '').trim()
@@ -7104,9 +7104,9 @@ sketch or construction lines.`,
         } else {
             body = `
                 <div class="nova-sticker-picker-tabs">
-                    ${packs.map(p => `<button type="button" class="nova-sticker-picker-tab ${p.id === pack.id ? 'active' : ''}" data-pack="${escapeHtml(p.id)}">${escapeHtml(p.name)}</button>`).join('')}
+                    ${packs.map(p => `<button type="button" class="nova-sticker-picker-tab ${p.id === pack.id ? 'active' : ''}" data-pack="${escapeHtml(p.id)}" style="${p.enabled === false ? 'opacity: 0.5; text-decoration: line-through;' : ''}">${escapeHtml(p.name)}</button>`).join('')}
                 </div>
-                <div class="nova-sticker-picker-grid">
+                <div class="nova-sticker-picker-grid" style="${pack.enabled === false ? 'opacity: 0.35; pointer-events: none;' : ''}">
                     ${pack.stickers.map(s => `<button type="button" class="nova-sticker-picker-item" data-sticker="${escapeHtml(s.id)}" title="${escapeHtml(s.name)}"><img src="${escapeHtml(stickerSrc(s.image))}" alt="" draggable="false"></button>`).join('')}
                 </div>`;
         }
@@ -7114,10 +7114,16 @@ sketch or construction lines.`,
         $picker.html(`
             ${body}
             <div class="nova-sticker-picker-footer">
-                <label class="nova-sticker-picker-toggle" title="${t('Один переключатель на все чаты')}">
-                    <input type="checkbox" class="nova-sticker-enabled" ${cfg.enabled ? 'checked' : ''}>
-                    <span>${t('Стикеры включены')}</span>
-                </label>
+                <div style="display: flex; flex-wrap: wrap; gap: 4px 14px; min-width: 0;">
+                    <label class="nova-sticker-picker-toggle" title="${t('Один переключатель на все чаты')}">
+                        <input type="checkbox" class="nova-sticker-enabled" ${cfg.enabled ? 'checked' : ''}>
+                        <span>${t('Стикеры включены')}</span>
+                    </label>
+                    ${cfg.enabled && pack ? `<label class="nova-sticker-picker-toggle">
+                        <input type="checkbox" class="nova-sticker-pack-enabled" ${pack.enabled !== false ? 'checked' : ''}>
+                        <span>${t('Этот набор')}</span>
+                    </label>` : ''}
+                </div>
                 <div class="nova-sticker-picker-actions">
                     ${cfg.enabled && pack ? `<button type="button" class="nova-sticker-picker-edit" title="${t('Изменить набор')}"><i class="fa-solid fa-pen"></i></button>` : ''}
                     <button type="button" class="nova-sticker-picker-new" title="${t('Новый стикерпак')}"><i class="fa-solid fa-plus"></i></button>
@@ -7148,6 +7154,13 @@ sketch or construction lines.`,
             saveStickerSettings();
             renderStickerPicker();
         });
+        $picker.on('change', '.nova-sticker-pack-enabled', function() {
+            const pack = getStickerSettings().packs.find(p => p.id === stickerPickerPackId);
+            if (!pack) return;
+            pack.enabled = this.checked;
+            saveStickerSettings();
+            renderStickerPicker();
+        });
         $picker.on('click', '.nova-sticker-picker-new, .nova-sticker-picker-create', () => openStickerPackEditor());
         $picker.on('click', '.nova-sticker-picker-edit', () => {
             if (stickerPickerPackId) openStickerPackEditor(stickerPickerPackId);
@@ -7158,7 +7171,7 @@ sketch or construction lines.`,
         // «Назад» человек возвращается ровно туда, откуда ушёл
         setTimeout(() => {
             $(document).on('click.novaStickerPicker', e => {
-                if (!$(e.target).closest('#nova-dm-sticker-picker, #nova-dm-stickers, #nova-view-sticker-pack, #nova-confirm-overlay, .nova-cropper, .nova-bgremove').length) closeStickerPicker();
+                if (!$(e.target).closest('#nova-dm-sticker-picker, #nova-dm-stickers, #nova-view-sticker-pack, #nova-confirm-overlay, .nova-cropper, .nova-sticker-editor').length) closeStickerPicker();
             });
         }, 0);
     }
@@ -7212,11 +7225,8 @@ sketch or construction lines.`,
         d.stickers.forEach(s => {
             $grid.append(`
                 <div class="nova-sticker-edit-cell" data-sticker="${escapeHtml(s.id)}">
-                    <div class="nova-sticker-edit-thumb">
+                    <div class="nova-sticker-edit-thumb" title="${t('Изменить стикер')}" style="cursor: pointer;">
                         <img src="${escapeHtml(stickerSrc(s.image))}" alt="" draggable="false">
-                        <button type="button" class="nova-sticker-edit-crop" title="${t('Обрезать')}"><i class="fa-solid fa-crop-simple"></i></button>
-                        <button type="button" class="nova-sticker-edit-bg" title="${t('Убрать фон')}"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
-                        <button type="button" class="nova-sticker-edit-remove" title="${t('Убрать стикер')}"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <input type="text" class="nova-sticker-edit-name" maxlength="${NOVA_STICKER_NAME_MAX}" value="${escapeHtml(s.name)}" placeholder="${t('Имя')}">
                 </div>
@@ -7299,7 +7309,8 @@ sketch or construction lines.`,
             }
             const collage = await uploadNovaImage(await buildStickerCollage(name, stickers), '_' + d.id);
 
-            const saved = { id: d.id, name, stickers, collage };
+            // Пересохранение пака не должно молча включать выключенный
+            const saved = { id: d.id, name, stickers, collage, enabled: cfg.packs.find(p => p.id === d.id)?.enabled !== false };
             const at = cfg.packs.findIndex(p => p.id === d.id);
             if (at >= 0) cfg.packs[at] = saved;
             else cfg.packs.push(saved);
@@ -7424,81 +7435,140 @@ sketch or construction lines.`,
         return out;
     }
 
-    function openBackgroundRemover(src, onDone) {
-        loadImageElement(stickerSrc(src)).then(img => {
-            const w = img.naturalWidth;
-            const h = img.naturalHeight;
-            const work = document.createElement('canvas');
-            work.width = w;
-            work.height = h;
-            const wctx = work.getContext('2d', { willReadFrequently: true });
-            wctx.drawImage(img, 0, 0);
-            const original = wctx.getImageData(0, 0, w, h);
+    // ── Окно одного стикера: обрезка и вырез фона ──
+    //
+    // Открывается тапом по стикеру в редакторе пака. Раскладка задана прямо в
+    // разметке, а не в style.css: на телефоне браузер может держать старый файл
+    // стилей в кэше, и окно без него разваливалось.
 
-            let tol = 12;
-            let everywhere = false;
-            let result = original;
+    const stickerMayHaveAlpha = image => {
+        const s = String(image || '');
+        return s.startsWith('data:') ? !s.startsWith('data:image/jpeg') : !/\.jpe?g$/i.test(s);
+    };
 
-            const $overlay = $(`
-                <div class="nova-bgremove">
-                    <div class="nova-bgremove-title">${t('Убрать фон')}</div>
-                    <div class="nova-bgremove-body"><canvas class="nova-bgremove-preview"></canvas></div>
-                    <div class="nova-bgremove-footer">
-                        <label class="nova-bgremove-row">
-                            <span>${t('Порог')}: <b class="nova-bgremove-val">${tol}</b></span>
-                            <input type="range" class="nova-bgremove-tol" min="0" max="50" step="1" value="${tol}">
+    const SE_BTN = 'flex: 1; padding: 11px 8px; border-radius: 12px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: inherit; display: flex; align-items: center; justify-content: center; gap: 6px;';
+    const SE_BTN_PLAIN = `${SE_BTN} background: var(--nova-surface-hover, #192734); color: var(--nova-text, #e7e9ea); border: 1px solid var(--nova-border, #38444d);`;
+
+    function openStickerEditor(sticker, onDone, onDelete) {
+        const initial = String(sticker.image || '');
+        let base = initial;        // картинка после обрезок, без выреза фона
+        let baseData = null;
+        let bgOn = false;
+        let tol = 12;
+        let everywhere = false;
+
+        const $overlay = $(`
+            <div class="nova-sticker-editor" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; z-index: 100015; display: flex; flex-direction: column; box-sizing: border-box; padding: var(--nova-safe-top, 0px) var(--nova-safe-right, 0px) 0 var(--nova-safe-left, 0px); background: rgba(0,0,0,0.92); font-family: var(--nova-font, sans-serif); color: var(--nova-text, #e7e9ea); overscroll-behavior: contain;">
+                <div style="flex: 0 0 auto; padding: 14px 16px 8px; text-align: center; font-size: 15px; font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(sticker.name || t('Стикер'))}</div>
+                <div style="flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 8px 12px; overflow: hidden;">
+                    <canvas class="nova-se-preview" style="display: block; max-width: 100%; max-height: 100%; border-radius: 8px; background-color: #fff; background-image: conic-gradient(#cfcfcf 25%, #fff 0 50%, #cfcfcf 0 75%, #fff 0); background-size: 20px 20px;"></canvas>
+                </div>
+                <div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; background: var(--nova-surface, #15202b); border-top: 1px solid var(--nova-border, #38444d); padding: 12px 16px; padding-bottom: calc(12px + var(--nova-safe-bottom, 0px));">
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="nova-se-crop" style="${SE_BTN_PLAIN}"><i class="fa-solid fa-crop-simple"></i> ${t('Обрезать')}</button>
+                        <button type="button" class="nova-se-reset" style="${SE_BTN_PLAIN}"><i class="fa-solid fa-rotate-left"></i> ${t('Сбросить')}</button>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; color: var(--nova-text, #e7e9ea);">
+                        <input type="checkbox" class="nova-se-bg" style="width: 18px; height: 18px; margin: 0; accent-color: var(--nova-accent, #1da1f2);">
+                        <span>${t('Убрать фон')}</span>
+                    </label>
+                    <div class="nova-se-bgopts" style="display: none; flex-direction: column; gap: 8px; padding-left: 26px;">
+                        <label style="display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--nova-text, #e7e9ea);">
+                            <span>${t('Порог')}: <b class="nova-se-val">${tol}</b></span>
+                            <input type="range" class="nova-se-tol" min="0" max="50" step="1" value="${tol}" style="width: 100%; accent-color: var(--nova-accent, #1da1f2);">
                         </label>
-                        <label class="nova-bgremove-check">
-                            <input type="checkbox" class="nova-bgremove-inside">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; color: var(--nova-text, #e7e9ea);">
+                            <input type="checkbox" class="nova-se-inside" style="width: 18px; height: 18px; margin: 0; accent-color: var(--nova-accent, #1da1f2);">
                             <span>${t('И внутри контура')}</span>
                         </label>
-                        <div class="nova-bgremove-buttons">
-                            <button type="button" class="nova-bgremove-cancel">${t('Отмена')}</button>
-                            <button type="button" class="nova-bgremove-apply">${t('Готово')}</button>
-                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="nova-se-delete" style="${SE_BTN} flex: 0 0 auto; padding: 11px 14px; background: transparent; color: #f44336; border: 1px solid #f44336;" title="${t('Убрать стикер')}"><i class="fa-solid fa-trash"></i></button>
+                        <button type="button" class="nova-se-cancel" style="${SE_BTN_PLAIN}">${t('Отмена')}</button>
+                        <button type="button" class="nova-se-apply" style="${SE_BTN} background: var(--nova-accent, #1da1f2); color: #fff; border: none; font-weight: 700;">${t('Готово')}</button>
                     </div>
                 </div>
-            `);
-            ($('#nova-backdrop').length ? $('#nova-backdrop') : $('body')).append($overlay);
-            $('body').addClass('nova-cropper-open');
+            </div>
+        `);
+        ($('#nova-backdrop').length ? $('#nova-backdrop') : $('body')).append($overlay);
+        $('body').addClass('nova-cropper-open');
 
-            const preview = $overlay.find('.nova-bgremove-preview')[0];
-            preview.width = w;
-            preview.height = h;
-            const pctx = preview.getContext('2d');
-            const run = () => {
-                result = eraseBackground(original, tol, everywhere);
-                pctx.putImageData(result, 0, 0);
-            };
-            let raf = 0;
-            const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(run); };
-            run();
-
-            $overlay.find('.nova-bgremove-tol').on('input', function() {
-                tol = Number(this.value) || 0;
-                $overlay.find('.nova-bgremove-val').text(tol);
-                schedule();
-            });
-            $overlay.find('.nova-bgremove-inside').on('change', function() {
-                everywhere = this.checked;
-                schedule();
-            });
-
-            const close = () => {
-                cancelAnimationFrame(raf);
-                $overlay.remove();
-                $(document).off('keydown.novaBgRemove');
-                $('body').removeClass('nova-cropper-open');
-            };
-            $overlay.find('.nova-bgremove-cancel').on('click', close);
-            $(document).on('keydown.novaBgRemove', e => { if (e.key === 'Escape') close(); });
-            $overlay.find('.nova-bgremove-apply').on('click', () => {
-                wctx.putImageData(result, 0, 0);
-                const dataUrl = work.toDataURL('image/png');
-                close();
-                onDone(dataUrl);
-            });
+        const preview = $overlay.find('.nova-se-preview')[0];
+        const pctx = preview.getContext('2d');
+        let raf = 0;
+        const render = () => {
+            if (!baseData) return;
+            pctx.putImageData(bgOn ? eraseBackground(baseData, tol, everywhere) : baseData, 0, 0);
+        };
+        const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); };
+        const load = () => loadImageElement(stickerSrc(base)).then(img => {
+            const c = document.createElement('canvas');
+            c.width = img.naturalWidth;
+            c.height = img.naturalHeight;
+            const g = c.getContext('2d', { willReadFrequently: true });
+            g.drawImage(img, 0, 0);
+            baseData = g.getImageData(0, 0, c.width, c.height);
+            preview.width = c.width;
+            preview.height = c.height;
+            render();
         }).catch(() => toastr.error(t('Не удалось прочитать изображение')));
+        load();
+
+        const close = () => {
+            cancelAnimationFrame(raf);
+            $overlay.remove();
+            $(document).off('keydown.novaStickerEditor');
+            if (!$('.nova-cropper').length) $('body').removeClass('nova-cropper-open');
+        };
+
+        $overlay.find('.nova-se-crop').on('click', () => {
+            openImageCropper(base, { free: true, keepAlpha: stickerMayHaveAlpha(base), outMax: NOVA_STICKER_MAX_DIM, title: t('Обрежьте стикер') }, dataUrl => {
+                base = dataUrl;
+                // кроппер снял блокировку прокрутки, а окно стикера ещё открыто
+                $('body').addClass('nova-cropper-open');
+                load();
+            });
+        });
+        $overlay.find('.nova-se-reset').on('click', () => {
+            base = initial;
+            bgOn = false;
+            $overlay.find('.nova-se-bg').prop('checked', false);
+            $overlay.find('.nova-se-bgopts').hide();
+            load();
+        });
+        $overlay.find('.nova-se-bg').on('change', function() {
+            bgOn = this.checked;
+            $overlay.find('.nova-se-bgopts').css('display', bgOn ? 'flex' : 'none');
+            schedule();
+        });
+        $overlay.find('.nova-se-tol').on('input', function() {
+            tol = Number(this.value) || 0;
+            $overlay.find('.nova-se-val').text(tol);
+            schedule();
+        });
+        $overlay.find('.nova-se-inside').on('change', function() {
+            everywhere = this.checked;
+            schedule();
+        });
+        $overlay.find('.nova-se-cancel').on('click', close);
+        $overlay.find('.nova-se-delete').on('click', () => { close(); onDelete(); });
+        $overlay.find('.nova-se-apply').on('click', () => {
+            if (!bgOn && base === initial) { close(); return; }
+            let out = base;
+            if (bgOn && baseData) {
+                const c = document.createElement('canvas');
+                c.width = baseData.width;
+                c.height = baseData.height;
+                c.getContext('2d').putImageData(eraseBackground(baseData, tol, everywhere), 0, 0);
+                out = c.toDataURL('image/png');
+            }
+            close();
+            onDone(out);
+        });
+        // Escape закрывает только верхнее окно: при открытом кроппере — его
+        $(document).on('keydown.novaStickerEditor', e => {
+            if (e.key === 'Escape' && !$('.nova-cropper').length) close();
+        });
     }
 
     function bindStickerEvents() {
@@ -7526,39 +7596,22 @@ sketch or construction lines.`,
             sticker.name = $(this).val();
             markStickerDraftChanged();
         });
-        $('#nova-sticker-pack-grid').on('click', '.nova-sticker-edit-crop', function() {
+        $('#nova-sticker-pack-grid').on('click', '.nova-sticker-edit-thumb', function() {
             const d = stickerDraft;
             const id = String($(this).closest('.nova-sticker-edit-cell').attr('data-sticker'));
             const sticker = d?.stickers.find(s => s.id === id);
             if (!sticker) return;
-            const image = String(sticker.image || '');
-            // Прозрачность держим, если она может быть: PNG/WebP/GIF и любые data URL кроме JPEG
-            const hasAlpha = image.startsWith('data:') ? !image.startsWith('data:image/jpeg') : !/\.jpe?g$/i.test(image);
-            openImageCropper(image, { free: true, keepAlpha: hasAlpha, outMax: NOVA_STICKER_MAX_DIM, title: t('Обрежьте стикер') }, dataUrl => {
+            openStickerEditor(sticker, image => {
                 if (stickerDraft !== d) return;
-                sticker.image = dataUrl;
+                sticker.image = image;
+                markStickerDraftChanged();
+                renderStickerPackGrid();
+            }, () => {
+                if (stickerDraft !== d) return;
+                d.stickers = d.stickers.filter(s => s.id !== id);
                 markStickerDraftChanged();
                 renderStickerPackGrid();
             });
-        });
-        $('#nova-sticker-pack-grid').on('click', '.nova-sticker-edit-bg', function() {
-            const d = stickerDraft;
-            const id = String($(this).closest('.nova-sticker-edit-cell').attr('data-sticker'));
-            const sticker = d?.stickers.find(s => s.id === id);
-            if (!sticker) return;
-            openBackgroundRemover(sticker.image, dataUrl => {
-                if (stickerDraft !== d) return;
-                sticker.image = dataUrl;
-                markStickerDraftChanged();
-                renderStickerPackGrid();
-            });
-        });
-        $('#nova-sticker-pack-grid').on('click', '.nova-sticker-edit-remove', function() {
-            if (!stickerDraft) return;
-            const id = String($(this).closest('.nova-sticker-edit-cell').attr('data-sticker'));
-            stickerDraft.stickers = stickerDraft.stickers.filter(s => s.id !== id);
-            markStickerDraftChanged();
-            renderStickerPackGrid();
         });
 
         $('#nova-sticker-pack-save').on('click', saveStickerPackDraft);
@@ -9237,6 +9290,9 @@ sketch or construction lines.`,
         'Уже отправленные стикеры останутся в переписках.': 'Stickers already sent will stay in the chats.',
         'Выйти без сохранения? Изменения в наборе пропадут.': 'Leave without saving? Changes to the pack will be lost.',
         'Выйти': 'Leave',
+        'Сбросить': 'Reset',
+        'Этот набор': 'This pack',
+        'Изменить стикер': 'Edit sticker',
         'Переносит старые аватарки из настроек в файлы.': 'Moves old avatars from settings into files.',
         'Удаляет неиспользуемые картинки, превью убирает в NOVA_thumbs.': 'Deletes unused images, moves thumbnails to NOVA_thumbs.',
         'До 12 картинок. По имени стикер отправляет персонаж.': 'Up to 12 images. The character sends a sticker by its name.',

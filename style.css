@@ -2827,78 +2827,6 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
     justify-content: center;
     aspect-ratio: 1 / 1;
 }
-.nova-sticker-edit-crop {
-    position: absolute;
-    top: 4px;
-    left: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
-.nova-sticker-edit-bg {
-    position: absolute;
-    bottom: 4px;
-    left: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
-/* Вырез фона: окно поверх редактора пака, как кадрирование */
-.nova-bgremove {
-    position: fixed;
-    inset: 0;
-    z-index: 100020;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    padding: var(--nova-safe-top) var(--nova-safe-right) 0 var(--nova-safe-left);
-    overscroll-behavior: contain;
-}
-.nova-bgremove-body {
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-}
-.nova-bgremove-preview {
-    display: block;
-    max-width: 100%;
-    max-height: 100%;
-}
-.nova-bgremove-footer {
-    flex: 0 0 auto;
-    display: flex;
-    flex-direction: column;
-}
-.nova-bgremove-row {
-    display: flex;
-    flex-direction: column;
-}
-.nova-bgremove-check {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-}
-.nova-bgremove-buttons {
-    display: flex;
-}
-.nova-bgremove-buttons button {
-    flex: 1;
-    cursor: pointer;
-}
-.nova-sticker-edit-remove {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-}
 
 @layer nova-components {
     .nova-sticker-picker {
@@ -2922,78 +2850,6 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
         font-size: 13px !important;
         font-family: inherit !important;
         white-space: nowrap !important;
-    }
-    .nova-bgremove {
-        background: rgba(0, 0, 0, 0.92) !important;
-        color: var(--nova-text) !important;
-        font-family: var(--nova-font) !important;
-    }
-    .nova-bgremove-title {
-        padding: 14px 16px 8px !important;
-        text-align: center !important;
-        font-size: 15px !important;
-        font-weight: 600 !important;
-        color: #fff !important;
-    }
-    .nova-bgremove-body {
-        padding: 8px 12px !important;
-    }
-    /* Шахматка — чтобы было видно, где фон уже прозрачный */
-    .nova-bgremove-preview {
-        border-radius: 8px !important;
-        background-color: #fff !important;
-        background-image: conic-gradient(#cfcfcf 25%, #fff 0 50%, #cfcfcf 0 75%, #fff 0) !important;
-        background-size: 20px 20px !important;
-    }
-    .nova-bgremove-footer {
-        background: var(--nova-surface) !important;
-        border-top: 1px solid var(--nova-border) !important;
-        padding: 12px 16px !important;
-        padding-bottom: calc(12px + var(--nova-safe-bottom)) !important;
-        gap: 10px !important;
-    }
-    .nova-bgremove-row {
-        gap: 6px !important;
-        font-size: 14px !important;
-        color: var(--nova-text) !important;
-    }
-    .nova-bgremove-row input {
-        width: 100% !important;
-        accent-color: var(--nova-accent) !important;
-    }
-    .nova-bgremove-check {
-        gap: 8px !important;
-        font-size: 14px !important;
-        color: var(--nova-text) !important;
-    }
-    .nova-bgremove-check input {
-        width: 18px !important;
-        height: 18px !important;
-        margin: 0 !important;
-        accent-color: var(--nova-accent) !important;
-    }
-    .nova-bgremove-buttons {
-        gap: 12px !important;
-    }
-    .nova-bgremove-cancel {
-        background: var(--nova-surface-hover) !important;
-        color: var(--nova-text) !important;
-        border: 1px solid var(--nova-border) !important;
-        padding: 12px !important;
-        border-radius: 12px !important;
-        font-weight: 600 !important;
-        font-size: 15px !important;
-        font-family: inherit !important;
-    }
-    .nova-bgremove-apply {
-        background: var(--nova-accent) !important;
-        color: #fff !important;
-        border: none !important;
-        padding: 12px !important;
-        border-radius: 12px !important;
-        font-weight: 700 !important;
-        font-size: 15px !important;
-        font-family: inherit !important;
     }
     .nova-sticker-picker-footer {
         gap: 8px !important;
@@ -3094,18 +2950,6 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
         max-width: 88% !important;
         max-height: 88% !important;
         object-fit: contain !important;
-    }
-    .nova-sticker-edit-crop,
-    .nova-sticker-edit-bg,
-    .nova-sticker-edit-remove {
-        width: 24px !important;
-        height: 24px !important;
-        padding: 0 !important;
-        border: none !important;
-        border-radius: 50% !important;
-        background: rgba(0, 0, 0, 0.6) !important;
-        color: #fff !important;
-        font-size: 12px !important;
     }
     .nova-sticker-edit-name {
         width: 100% !important;
