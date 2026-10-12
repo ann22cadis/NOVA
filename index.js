@@ -6984,7 +6984,7 @@ sketch or construction lines.`,
         // «Назад» человек возвращается ровно туда, откуда ушёл
         setTimeout(() => {
             $(document).on('click.novaStickerPicker', e => {
-                if (!$(e.target).closest('#nova-dm-sticker-picker, #nova-dm-stickers, #nova-view-sticker-pack, #nova-confirm-overlay').length) closeStickerPicker();
+                if (!$(e.target).closest('#nova-dm-sticker-picker, #nova-dm-stickers, #nova-view-sticker-pack, #nova-confirm-overlay, .nova-cropper').length) closeStickerPicker();
             });
         }, 0);
     }
@@ -7040,6 +7040,7 @@ sketch or construction lines.`,
                 <div class="nova-sticker-edit-cell" data-sticker="${escapeHtml(s.id)}">
                     <div class="nova-sticker-edit-thumb">
                         <img src="${escapeHtml(stickerSrc(s.image))}" alt="" draggable="false">
+                        <button type="button" class="nova-sticker-edit-crop" title="${t('Обрезать')}"><i class="fa-solid fa-crop-simple"></i></button>
                         <button type="button" class="nova-sticker-edit-remove" title="${t('Убрать стикер')}"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <input type="text" class="nova-sticker-edit-name" maxlength="${NOVA_STICKER_NAME_MAX}" value="${escapeHtml(s.name)}" placeholder="${t('Имя')}">
@@ -7064,7 +7065,7 @@ sketch or construction lines.`,
         const d = stickerDraft;
         if (!d) return;
         const room = NOVA_STICKERS_PER_PACK - d.stickers.length;
-        const list = [...files].filter(f => /^image\//.test(f.type));
+        const list = [...files].filter(f => !f.type || f.type.startsWith('image/'));
         if (!list.length) return;
         if (list.length > room) toastr.warning(t('В наборе максимум 12 стикеров — лишние не добавлены.'));
 
@@ -7194,6 +7195,21 @@ sketch or construction lines.`,
             if (!sticker) return;
             sticker.name = $(this).val();
             markStickerDraftChanged();
+        });
+        $('#nova-sticker-pack-grid').on('click', '.nova-sticker-edit-crop', function() {
+            const d = stickerDraft;
+            const id = String($(this).closest('.nova-sticker-edit-cell').attr('data-sticker'));
+            const sticker = d?.stickers.find(s => s.id === id);
+            if (!sticker) return;
+            const image = String(sticker.image || '');
+            // Прозрачность держим, если она может быть: PNG/WebP/GIF и любые data URL кроме JPEG
+            const hasAlpha = image.startsWith('data:') ? !image.startsWith('data:image/jpeg') : !/\.jpe?g$/i.test(image);
+            openImageCropper(image, { free: true, keepAlpha: hasAlpha, outMax: NOVA_STICKER_MAX_DIM, title: t('Обрежьте стикер') }, dataUrl => {
+                if (stickerDraft !== d) return;
+                sticker.image = dataUrl;
+                markStickerDraftChanged();
+                renderStickerPackGrid();
+            });
         });
         $('#nova-sticker-pack-grid').on('click', '.nova-sticker-edit-remove', function() {
             if (!stickerDraft) return;
@@ -8882,6 +8898,8 @@ sketch or construction lines.`,
         'Уже отправленные стикеры останутся в переписках.': 'Stickers already sent will stay in the chats.',
         'Выйти без сохранения? Изменения в наборе пропадут.': 'Leave without saving? Changes to the pack will be lost.',
         'Выйти': 'Leave',
+        'Обрезать': 'Crop',
+        'Обрежьте стикер': 'Crop the sticker',
         'Стикеры выключены — ни вы, ни персонажи их не отправляют.': 'Stickers are off — neither you nor the characters send them.',
         'Пока нет ни одного набора.': 'No sticker packs yet.',
         'Создать стикерпак': 'Create a sticker pack',
@@ -11196,15 +11214,27 @@ sketch or construction lines.`,
         const outWidth = options.outWidth || 900;
         const title = options.title || t('Выберите область');
         const allowShape = !!options.allowShape;
+        // Свободные пропорции (стикер не обязан быть квадратным): углы тянут ширину
+        // и высоту независимо, результат — в натуральном размере, не крупнее outMax
+        const free = !!options.free;
+        const outMax = options.outMax || 0;
+        // Прозрачный фон сохраняется только в PNG — JPEG залил бы его чёрным
+        const keepAlpha = !!options.keepAlpha;
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
+        const loadSrc = src => {
             const img = new Image();
             img.onload = () => buildCropper(img);
             img.onerror = () => toastr.error(t('Не удалось прочитать изображение'));
-            img.src = event.target.result;
+            img.src = src;
         };
-        reader.readAsDataURL(file);
+        // Можно передать уже готовую картинку — data URL или путь к файлу — а не только File
+        if (typeof file === 'string') {
+            loadSrc(/^(data:|\/|https?:)/.test(file) ? file : `/${file}`);
+        } else {
+            const reader = new FileReader();
+            reader.onload = (event) => loadSrc(event.target.result);
+            reader.readAsDataURL(file);
+        }
 
         function buildCropper(img) {
             let shape = 'square';
@@ -11264,6 +11294,10 @@ sketch or construction lines.`,
             }
 
             function resetBox() {
+                if (free) {
+                    box = { x: 0, y: 0, w: dispW, h: dispH };
+                    return;
+                }
                 box.w = dispW;
                 box.h = dispW / aspect;
                 if (box.h > dispH) {
@@ -11368,11 +11402,17 @@ sketch or construction lines.`,
                     let w = goingLeft ? anchorX - p.x : p.x - anchorX;
                     w = Math.max(MIN, w);
                     w = Math.min(w, goingLeft ? anchorX : dispW - anchorX);
-                    let h = w / aspect;
                     const limitH = goingUp ? anchorY : dispH - anchorY;
-                    if (h > limitH) {
-                        h = limitH;
-                        w = h * aspect;
+                    let h;
+                    if (free) {
+                        h = goingUp ? anchorY - p.y : p.y - anchorY;
+                        h = Math.min(Math.max(MIN, h), limitH);
+                    } else {
+                        h = w / aspect;
+                        if (h > limitH) {
+                            h = limitH;
+                            w = h * aspect;
+                        }
                     }
                     box.w = w;
                     box.h = h;
@@ -11411,8 +11451,16 @@ sketch or construction lines.`,
                 if (!dispW || !dispH) { close(); return; }
                 const scale = img.naturalWidth / dispW;
                 const canvas = document.createElement('canvas');
-                canvas.width = outWidth;
-                canvas.height = Math.round(outWidth / aspect);
+                if (free) {
+                    const srcW = box.w * scale;
+                    const srcH = box.h * scale;
+                    const k = outMax ? Math.min(1, outMax / Math.max(srcW, srcH)) : 1;
+                    canvas.width = Math.max(1, Math.round(srcW * k));
+                    canvas.height = Math.max(1, Math.round(srcH * k));
+                } else {
+                    canvas.width = outWidth;
+                    canvas.height = Math.round(outWidth / aspect);
+                }
                 const ctx2d = canvas.getContext('2d');
                 ctx2d.drawImage(
                     img,
@@ -11427,6 +11475,8 @@ sketch or construction lines.`,
                     ctx2d.beginPath();
                     ctx2d.arc(canvas.width / 2, canvas.height / 2, Math.min(canvas.width, canvas.height) / 2, 0, Math.PI * 2);
                     ctx2d.fill();
+                    dataUrl = canvas.toDataURL('image/png');
+                } else if (keepAlpha) {
                     dataUrl = canvas.toDataURL('image/png');
                 } else {
                     dataUrl = canvas.toDataURL('image/jpeg', 0.85);

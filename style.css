@@ -2827,6 +2827,15 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
     justify-content: center;
     aspect-ratio: 1 / 1;
 }
+.nova-sticker-edit-crop {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
 .nova-sticker-edit-remove {
     position: absolute;
     top: 4px;
@@ -2960,6 +2969,7 @@ details.nova-settings-group[open] > .nova-settings-summary > .nova-settings-chev
         max-height: 88% !important;
         object-fit: contain !important;
     }
+    .nova-sticker-edit-crop,
     .nova-sticker-edit-remove {
         width: 24px !important;
         height: 24px !important;
