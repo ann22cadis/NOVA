@@ -2020,6 +2020,19 @@ sketch or construction lines.`,
         return rec;
     }
 
+    /** Одна реакция почти слово в слово повторяет другую: 80% слов короткой из них — в длинной. */
+    function isNearDuplicateReaction(a, b) {
+        const words = s => new Set(String(s || '').toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').split(/\s+/).filter(Boolean));
+        const wa = words(a);
+        const wb = words(b);
+        if (!wa.size || !wb.size) return false;
+        const [small, big] = wa.size <= wb.size ? [wa, wb] : [wb, wa];
+        if (small.size < 3) return [...small].join(' ') === [...big].join(' ');
+        let common = 0;
+        small.forEach(w => { if (big.has(w)) common++; });
+        return common / small.size >= 0.8;
+    }
+
     /** Готовый блок инструкций про симпатию для промпта — пустая строка, если некого отслеживать. */
     function buildRelationshipInstruction(userHandle, target = 'feed') {
         const rel = getRelationshipSettings();
@@ -2028,11 +2041,21 @@ sketch or construction lines.`,
         // нейтральных 50%, а прикинуть текущее состояние отношений по всей
         // истории РП — иначе давние друзья по сюжету стартуют как незнакомцы
         const newHandles = rel.tracked.filter(h => !rel.data[h]?.reactions?.length);
+        // Прошлые реакции — чтобы модель не писала каждую «вслепую» одним и тем же
+        // шаблоном. Пометки ручного пересчёта («Сейчас: …») — не реакции, пропускаем
+        const recentReactions = rel.tracked.map(h => {
+            const list = (rel.data[h]?.reactions || [])
+                .map(r => String(r.text || '').trim())
+                .filter(text => text && !/^(Сейчас|Now):/.test(text))
+                .slice(0, 4);
+            return list.length ? `@${h}: ${list.map(text => `"${text}"`).join(' / ')}` : '';
+        }).filter(Boolean).join('\n');
         return NovaPrompts.relationshipInstructionBlock({
             trackedHandles: rel.tracked.map(h => `@${h}`).join(', '),
             newHandles: newHandles.map(h => `@${h}`).join(', '),
             userHandle,
             target,
+            recentReactions,
         });
     }
 
@@ -2179,7 +2202,7 @@ sketch or construction lines.`,
         // 0.30000000004 из-за собственной арифметики модели, и это осядет в истории.
         const rawDelta = Number(found.data.affinity_delta);
         const delta = Number.isFinite(rawDelta) ? Math.max(-10, Math.min(10, Math.round(rawDelta * 10) / 10)) : 0;
-        const reaction = String(found.data.reaction || '').trim();
+        let reaction = String(found.data.reaction || '').trim();
         const status = String(found.data.status || '').trim();
         const rawEstimate = found.data.affinity_estimate;
         const hasEstimate = rawEstimate !== undefined && rawEstimate !== null && rawEstimate !== '' && Number.isFinite(Number(rawEstimate));
@@ -2189,6 +2212,8 @@ sketch or construction lines.`,
 
         const rec = getRelationshipRecord(handle);
         const isFirstEvent = rec.reactions.length === 0;
+        // Почти дословный повтор недавней реакции — сдвиг симпатии записываем, а текст нет
+        if (reaction && rec.reactions.slice(0, 8).some(r => isNearDuplicateReaction(r.text, reaction))) reaction = '';
         // Значение ДО этого события целиком — не только дельта, а вообще всё, что
         // тут может произойти (в т.ч. стартовая оценка ниже). Нужно, чтобы откат
         // при удалении поста мог восстановить ровно то, что было, а не просто

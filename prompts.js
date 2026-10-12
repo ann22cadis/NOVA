@@ -239,7 +239,7 @@ ${packsList}
      *   из реакций на ОДИН конкретный пост юзера (создание поста, перегенерация) —
      *   тут строгая избирательность 'feed' не нужна, это и так сплошь реакции.
      */
-    relationshipInstructionBlock({ trackedHandles = '', newHandles = '', userHandle = '@user', target = 'feed' } = {}) {
+    relationshipInstructionBlock({ trackedHandles = '', newHandles = '', userHandle = '@user', target = 'feed', recentReactions = '' } = {}) {
         if (!trackedHandles) return '';
         const L = rp();
         const relevance = target === 'dm'
@@ -256,7 +256,9 @@ When an object above is written BY one of these accounts AND it is a direct reac
 - ${relevance}
 - "affinity_delta": a NUMBER from -10 to 10, with up to ONE decimal place (0.5, -1.5, 3, -7 are all valid), how THIS exchange shifted their feelings toward ${userHandle}. 0 is a completely normal, common answer — most small talk, routine replies, or reactions that are worth a line but don't actually move the needle should get 0. Do NOT invent movement just to have a non-zero number. Use a fractional value (±0.5, ±1.5) for something that barely registers but isn't quite nothing — a small wave of your existing whole-number scale, not a separate category. Keep real whole-number swings small (±1 to ±3) too; reserve ±7 to ±10 for a genuinely major moment (betrayal, huge favor, confession).
 - "status": OPTIONAL, one short phrase in ${L.NAME} capturing the relationship right now — not just HOW STRONG it is, but what KIND it actually is. Romance, rivalry, family-like bonds, mentorship — whatever the story has actually built, not only degrees of friendship (e.g. ${L.statusExamples}). Fill it in only when it's worth being more specific than the raw number; otherwise leave it "". Unlike "reaction" below, this is a stable label for what they ARE to each other — it should persist across many exchanges, not get rewritten on every single tag. Feel free to colour the label with the actual TONE of the dynamic instead of leaving it a flat, one-word category that never changes — ${L.statusToneExamples} are all fair game when that's genuinely how it plays out.
-- "reaction": ONE short sentence in ${L.NAME}, in the character's own voice — how they feel about ${userHandle} right now, not a summary of the scene. Can be funny, petty, warm, sarcastic — whatever actually fits the character.${newHandles ? `
+- "reaction": ONE short sentence in ${L.NAME}, in the character's own voice — how they feel about ${userHandle} right now, not a summary of the scene. Can be funny, petty, warm, sarcastic — whatever actually fits the character.${recentReactions ? `
+- Their latest "reaction" lines, newest first. The new one is about THIS exact moment and worded differently — a different opening, different words, never a rephrase of these:
+${recentReactions}` : ''}${newHandles ? `
 
 FIRST-TIME CALIBRATION for these accounts specifically (no relationship data recorded for them yet): ${newHandles}
 On THEIR first tagged reaction, don't treat them as if meeting ${userHandle} for the first time — look at everything already established between them and ${userHandle} in this roleplay so far (history, how they already talk to each other, any existing dynamic) and add one more field to the tag: "affinity_estimate", an absolute integer 0-100 for where things realistically stand RIGHT NOW (50 = neutral strangers, 80+ = established friends or more, 20 or below = real hostility). This is a one-time starting point, not a delta — do this only the first time each of these accounts gets tagged, never again after.` : ''}`;
@@ -696,7 +698,7 @@ CRITICAL RULES:
 5. You can write ONE or MULTIPLE messages at once, depending on how your character texts (e.g. some send one long text, others spam short texts).
 6. IMPORTANT: Pay attention to the CURRENT CONTEXT. Your character should react to recent roleplay events, bring them up, or ask the user (the person you're texting) about them. The user is a full participant in this story, not a passive reader.
 7. YOU HAVE YOUR OWN LIFE. The RP is not all you think about. Bring up your own day unprompted — work, chores, something you saw, something that annoyed you. Sometimes you are the one starting a topic, not just answering.
-8. DO NOT repeat what you already said earlier in this thread, and do not re-ask a question that was already answered. Read the history and move the conversation FORWARD.
+8. DO NOT repeat what you already said earlier in this thread, and do not re-ask a question that was already answered. Read the history and move the conversation FORWARD. Don't get stuck on one thing: if you already told them something (go to sleep, eat, take care of yourself) and they didn't listen, let it go or come back to it later in a new way — not message after message. Vary pet names, catchphrases and jokes too.
 9. You are a person with a schedule: you can be busy, distracted, tired, or in the middle of something.${imageRule}
 
 Based on the history and the character's personality, write their NEXT response(s).
@@ -757,6 +759,7 @@ CRITICAL RULES:
 4. You can act as ONE OR MORE of the participants. Decide who would logically reply right now based on the conversation.
 5. If multiple characters are arguing or talking, you can return multiple messages from different characters in sequence.
 6. Provide the EXACT handle of the sender for each message.
+7. Don't get stuck on one thing: if someone already said something (go to sleep, eat, calm down) and the user didn't listen, let it go or come back to it later in a new way — not message after message. Vary pet names, catchphrases and running jokes too.
 
 Based on the history and personalities, write the next message(s) in the group chat.
 
