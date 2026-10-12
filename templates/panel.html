@@ -363,14 +363,14 @@
                     <div class="nova-settings-group" style="display: flex; flex-direction: column; gap: 12px; background: var(--nova-inset); padding: 16px; border-radius: 12px; border: 1px solid var(--nova-border);">
                         <div style="font-weight: 700; font-size: 16px; border-bottom: 1px solid var(--nova-border); padding-bottom: 8px;">Хранилище</div>
                         <div style="font-size: 14px; color: var(--nova-text-muted);">
-                            Аватарки, загруженные до перехода на хранение файлом, а также их старые копии в ленте и переписке — переносит в файлы и убирает дубли, ничего не удаляя безвозвратно.
+                            Переносит старые аватарки из настроек в файлы.
                         </div>
                         <button id="nova-compact-storage-btn" style="width: 100%; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             <i class="fa-solid fa-broom"></i> Проверить и сжать
                         </button>
                         <div id="nova-compact-storage-result" style="font-size: 13px; color: var(--nova-text-muted);"></div>
                         <div style="font-size: 14px; color: var(--nova-text-muted); margin-top: 4px;">
-                            Картинки NOVA, на которые больше ничего не ссылается (удалённые посты и сообщения, старые версии, старые коллажи стикеров), удаляются из папки. Уменьшенные превью переезжают в отдельную папку NOVA_thumbs, чтобы не лежали рядом с оригиналами.
+                            Удаляет неиспользуемые картинки, превью убирает в NOVA_thumbs.
                         </div>
                         <button id="nova-image-cleanup-btn" style="width: 100%; background: var(--nova-surface-hover); color: var(--nova-text); border: 1px solid var(--nova-border); padding: 12px; border-radius: 12px; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             <i class="fa-solid fa-trash-can"></i> Убрать лишние картинки
@@ -459,7 +459,7 @@
                     <input type="file" id="nova-sticker-pack-files" accept="image/*" multiple style="display: none;">
                 </div>
                 <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4; margin-top: -8px;">
-                    PNG или JPG, с фоном или без, до 12 штук. У каждого стикера своё имя — по нему его отправляет персонаж.
+                    До 12 картинок. По имени стикер отправляет персонаж.
                 </span>
                 <div id="nova-sticker-pack-grid" class="nova-sticker-edit-grid"></div>
                 <div style="display: flex; gap: 12px;">
@@ -468,7 +468,7 @@
                 </div>
                 <div id="nova-sticker-pack-collage-wrap" style="display: none; flex-direction: column; gap: 8px;">
                     <span style="color: var(--nova-text-muted); font-size: 14px;">Так набор видит персонаж</span>
-                    <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">Коллаж уходит модели только через профиль подключения NOVA — с главным API Таверны персонаж выбирает стикеры по одним названиям.</span>
+                    <span style="color: var(--nova-text-muted); font-size: 12px; opacity: 0.75; line-height: 1.4;">Модель видит коллаж только через профиль подключения.</span>
                     <img id="nova-sticker-pack-collage" alt="" style="width: 100%; border-radius: 8px; border: 1px solid var(--nova-border);">
                 </div>
             </div>

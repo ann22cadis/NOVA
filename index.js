@@ -7098,7 +7098,7 @@ sketch or construction lines.`,
 
         let body;
         if (!cfg.enabled) {
-            body = `<div class="nova-sticker-picker-empty">${t('Стикеры выключены — ни вы, ни персонажи их не отправляют.')}</div>`;
+            body = `<div class="nova-sticker-picker-empty">${t('Стикеры выключены.')}</div>`;
         } else if (!pack) {
             body = `<div class="nova-sticker-picker-empty">${t('Пока нет ни одного набора.')}<br><button type="button" class="nova-sticker-picker-create">${t('Создать стикерпак')}</button></div>`;
         } else {
@@ -7158,7 +7158,7 @@ sketch or construction lines.`,
         // «Назад» человек возвращается ровно туда, откуда ушёл
         setTimeout(() => {
             $(document).on('click.novaStickerPicker', e => {
-                if (!$(e.target).closest('#nova-dm-sticker-picker, #nova-dm-stickers, #nova-view-sticker-pack, #nova-confirm-overlay, .nova-cropper').length) closeStickerPicker();
+                if (!$(e.target).closest('#nova-dm-sticker-picker, #nova-dm-stickers, #nova-view-sticker-pack, #nova-confirm-overlay, .nova-cropper, .nova-bgremove').length) closeStickerPicker();
             });
         }, 0);
     }
@@ -7215,6 +7215,7 @@ sketch or construction lines.`,
                     <div class="nova-sticker-edit-thumb">
                         <img src="${escapeHtml(stickerSrc(s.image))}" alt="" draggable="false">
                         <button type="button" class="nova-sticker-edit-crop" title="${t('Обрезать')}"><i class="fa-solid fa-crop-simple"></i></button>
+                        <button type="button" class="nova-sticker-edit-bg" title="${t('Убрать фон')}"><i class="fa-solid fa-wand-magic-sparkles"></i></button>
                         <button type="button" class="nova-sticker-edit-remove" title="${t('Убрать стикер')}"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                     <input type="text" class="nova-sticker-edit-name" maxlength="${NOVA_STICKER_NAME_MAX}" value="${escapeHtml(s.name)}" placeholder="${t('Имя')}">
@@ -7345,6 +7346,161 @@ sketch or construction lines.`,
         else close();
     }
 
+    // ── Вырез однотонного фона у стикера ──
+    //
+    // Фон — самый частый цвет по краю картинки. Стирается всё, что похоже на него и
+    // соединено с краем (или вообще всё похожее — галочка «и внутри контура»).
+    // Без нейросети: мгновенно и офлайн, но только для однотонного фона.
+
+    /** Цвет фона: самый частый по краю, с округлением — шум JPEG не дробит его на оттенки. */
+    function dominantEdgeColor(d, w, h) {
+        const counts = new Map();
+        let best = -1;
+        let bestN = 0;
+        const add = (x, y) => {
+            const i = (y * w + x) * 4;
+            if (d[i + 3] < 16) return;
+            const key = ((d[i] >> 3) << 10) | ((d[i + 1] >> 3) << 5) | (d[i + 2] >> 3);
+            const n = (counts.get(key) || 0) + 1;
+            counts.set(key, n);
+            if (n > bestN) { bestN = n; best = i; }
+        };
+        for (let x = 0; x < w; x++) { add(x, 0); add(x, h - 1); }
+        for (let y = 1; y < h - 1; y++) { add(0, y); add(w - 1, y); }
+        return best < 0 ? null : [d[best], d[best + 1], d[best + 2]];
+    }
+
+    /**
+     * @param {ImageData} src исходник, не меняется
+     * @param {number} tolPct 0–50: насколько далёкие от фона оттенки тоже считать фоном
+     * @param {boolean} everywhere стирать похожий цвет везде, а не только связанный с краем
+     */
+    function eraseBackground(src, tolPct, everywhere) {
+        const w = src.width;
+        const h = src.height;
+        const s = src.data;
+        const out = new ImageData(new Uint8ClampedArray(s), w, h);
+        const d = out.data;
+        const bg = dominantEdgeColor(s, w, h);
+        if (!bg) return out;
+
+        const tol = 441.7 * tolPct / 100;
+        const soft = Math.max(10, tol * 0.6);
+        const dist = i => Math.hypot(s[i] - bg[0], s[i + 1] - bg[1], s[i + 2] - bg[2]);
+        const passable = p => s[p * 4 + 3] < 16 || dist(p * 4) <= tol;
+        const isBg = new Uint8Array(w * h);
+
+        if (everywhere) {
+            for (let p = 0; p < w * h; p++) if (passable(p)) isBg[p] = 1;
+        } else {
+            const stack = [];
+            const seed = p => { if (!isBg[p] && passable(p)) { isBg[p] = 1; stack.push(p); } };
+            for (let x = 0; x < w; x++) { seed(x); seed((h - 1) * w + x); }
+            for (let y = 0; y < h; y++) { seed(y * w); seed(y * w + w - 1); }
+            while (stack.length) {
+                const p = stack.pop();
+                const x = p % w;
+                const y = (p / w) | 0;
+                if (x > 0) seed(p - 1);
+                if (x < w - 1) seed(p + 1);
+                if (y > 0) seed(p - w);
+                if (y < h - 1) seed(p + w);
+            }
+        }
+
+        for (let p = 0; p < w * h; p++) {
+            const i = p * 4;
+            if (isBg[p]) { d[i + 3] = 0; continue; }
+            // Мягкий край: пиксель у вырезанного фона, близкий к нему по цвету, делаем
+            // полупрозрачным — иначе вокруг стикера остаётся светлая кайма
+            const x = p % w;
+            const y = (p / w) | 0;
+            const nearBg = (x > 0 && isBg[p - 1]) || (x < w - 1 && isBg[p + 1]) || (y > 0 && isBg[p - w]) || (y < h - 1 && isBg[p + w]);
+            if (nearBg) {
+                const k = Math.min(1, Math.max(0, (dist(i) - tol) / soft));
+                d[i + 3] = Math.round(d[i + 3] * k);
+            }
+        }
+        return out;
+    }
+
+    function openBackgroundRemover(src, onDone) {
+        loadImageElement(stickerSrc(src)).then(img => {
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            const work = document.createElement('canvas');
+            work.width = w;
+            work.height = h;
+            const wctx = work.getContext('2d', { willReadFrequently: true });
+            wctx.drawImage(img, 0, 0);
+            const original = wctx.getImageData(0, 0, w, h);
+
+            let tol = 12;
+            let everywhere = false;
+            let result = original;
+
+            const $overlay = $(`
+                <div class="nova-bgremove">
+                    <div class="nova-bgremove-title">${t('Убрать фон')}</div>
+                    <div class="nova-bgremove-body"><canvas class="nova-bgremove-preview"></canvas></div>
+                    <div class="nova-bgremove-footer">
+                        <label class="nova-bgremove-row">
+                            <span>${t('Порог')}: <b class="nova-bgremove-val">${tol}</b></span>
+                            <input type="range" class="nova-bgremove-tol" min="0" max="50" step="1" value="${tol}">
+                        </label>
+                        <label class="nova-bgremove-check">
+                            <input type="checkbox" class="nova-bgremove-inside">
+                            <span>${t('И внутри контура')}</span>
+                        </label>
+                        <div class="nova-bgremove-buttons">
+                            <button type="button" class="nova-bgremove-cancel">${t('Отмена')}</button>
+                            <button type="button" class="nova-bgremove-apply">${t('Готово')}</button>
+                        </div>
+                    </div>
+                </div>
+            `);
+            ($('#nova-backdrop').length ? $('#nova-backdrop') : $('body')).append($overlay);
+            $('body').addClass('nova-cropper-open');
+
+            const preview = $overlay.find('.nova-bgremove-preview')[0];
+            preview.width = w;
+            preview.height = h;
+            const pctx = preview.getContext('2d');
+            const run = () => {
+                result = eraseBackground(original, tol, everywhere);
+                pctx.putImageData(result, 0, 0);
+            };
+            let raf = 0;
+            const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(run); };
+            run();
+
+            $overlay.find('.nova-bgremove-tol').on('input', function() {
+                tol = Number(this.value) || 0;
+                $overlay.find('.nova-bgremove-val').text(tol);
+                schedule();
+            });
+            $overlay.find('.nova-bgremove-inside').on('change', function() {
+                everywhere = this.checked;
+                schedule();
+            });
+
+            const close = () => {
+                cancelAnimationFrame(raf);
+                $overlay.remove();
+                $(document).off('keydown.novaBgRemove');
+                $('body').removeClass('nova-cropper-open');
+            };
+            $overlay.find('.nova-bgremove-cancel').on('click', close);
+            $(document).on('keydown.novaBgRemove', e => { if (e.key === 'Escape') close(); });
+            $overlay.find('.nova-bgremove-apply').on('click', () => {
+                wctx.putImageData(result, 0, 0);
+                const dataUrl = work.toDataURL('image/png');
+                close();
+                onDone(dataUrl);
+            });
+        }).catch(() => toastr.error(t('Не удалось прочитать изображение')));
+    }
+
     function bindStickerEvents() {
         $('#nova-sticker-pack-back-btn').on('click', closeStickerPackEditor);
         $('#nova-sticker-pack-name').on('input', function() {
@@ -7379,6 +7535,18 @@ sketch or construction lines.`,
             // Прозрачность держим, если она может быть: PNG/WebP/GIF и любые data URL кроме JPEG
             const hasAlpha = image.startsWith('data:') ? !image.startsWith('data:image/jpeg') : !/\.jpe?g$/i.test(image);
             openImageCropper(image, { free: true, keepAlpha: hasAlpha, outMax: NOVA_STICKER_MAX_DIM, title: t('Обрежьте стикер') }, dataUrl => {
+                if (stickerDraft !== d) return;
+                sticker.image = dataUrl;
+                markStickerDraftChanged();
+                renderStickerPackGrid();
+            });
+        });
+        $('#nova-sticker-pack-grid').on('click', '.nova-sticker-edit-bg', function() {
+            const d = stickerDraft;
+            const id = String($(this).closest('.nova-sticker-edit-cell').attr('data-sticker'));
+            const sticker = d?.stickers.find(s => s.id === id);
+            if (!sticker) return;
+            openBackgroundRemover(sticker.image, dataUrl => {
                 if (stickerDraft !== d) return;
                 sticker.image = dataUrl;
                 markStickerDraftChanged();
@@ -8565,8 +8733,6 @@ sketch or construction lines.`,
         'Отправлять авторские заметки': "Send author's notes",
         'Заметка чата и заметка, привязанная к персонажу.': "The chat note and the note attached to the character.",
         'Хранилище': 'Storage',
-        'Аватарки, загруженные до перехода на хранение файлом, а также их старые копии в ленте и переписке — переносит в файлы и убирает дубли, ничего не удаляя безвозвратно.':
-            'Avatars uploaded before the switch to file-based storage, plus their stale copies in the feed and DMs — moves them into files and removes duplicates, without permanently deleting anything.',
         'Проверить и сжать': 'Check and compact',
         'Сохранить настройки': 'Save settings',
         // ЛС (заглушка)
@@ -9054,7 +9220,6 @@ sketch or construction lines.`,
         'Название набора': 'Pack name',
         'Например: Котики': 'For example: Cats',
         'Добавить': 'Add',
-        'PNG или JPG, с фоном или без, до 12 штук. У каждого стикера своё имя — по нему его отправляет персонаж.': 'PNG or JPG, with or without a background, up to 12. Every sticker has its own name — the character sends it by that name.',
         'Удалить набор': 'Delete pack',
         'Так набор видит персонаж': 'How the character sees this pack',
         'Добавьте стикеры кнопкой «Добавить».': 'Add stickers with the "Add" button.',
@@ -9072,26 +9237,30 @@ sketch or construction lines.`,
         'Уже отправленные стикеры останутся в переписках.': 'Stickers already sent will stay in the chats.',
         'Выйти без сохранения? Изменения в наборе пропадут.': 'Leave without saving? Changes to the pack will be lost.',
         'Выйти': 'Leave',
+        'Переносит старые аватарки из настроек в файлы.': 'Moves old avatars from settings into files.',
+        'Удаляет неиспользуемые картинки, превью убирает в NOVA_thumbs.': 'Deletes unused images, moves thumbnails to NOVA_thumbs.',
+        'До 12 картинок. По имени стикер отправляет персонаж.': 'Up to 12 images. The character sends a sticker by its name.',
+        'Модель видит коллаж только через профиль подключения.': 'The model sees the collage only via a connection profile.',
+        'Удалить картинок:': 'Images to delete:',
+        'Перенести превью:': 'Thumbnails to move:',
+        'Используемые не тронутся.': 'Images in use stay.',
+        'превью перенесено:': 'thumbnails moved:',
+        'Стикеры выключены.': 'Stickers are off.',
+        'Убрать фон': 'Remove background',
+        'Порог': 'Threshold',
+        'И внутри контура': 'Inside outlines too',
         'Убрать лишние картинки': 'Remove unused images',
-        'Картинки NOVA, на которые больше ничего не ссылается (удалённые посты и сообщения, старые версии, старые коллажи стикеров), удаляются из папки. Уменьшенные превью переезжают в отдельную папку NOVA_thumbs, чтобы не лежали рядом с оригиналами.': 'NOVA images nothing refers to any more (deleted posts and messages, old versions, old sticker collages) are deleted from the folder. Thumbnails move to a separate NOVA_thumbs folder so they don\'t sit next to the originals.',
         'Проверяю папку...': 'Checking the folder...',
         'Лишних картинок нет.': 'No unused images.',
-        'Удалить неиспользуемые картинки:': 'Delete unused images:',
-        'Перенести превью в папку NOVA_thumbs:': 'Move thumbnails to the NOVA_thumbs folder:',
-        'Картинки, которые ещё есть в ленте, переписках, стикерпаках или резервных копиях, не трогаются.': 'Images still used in the feed, chats, sticker packs or backups are left alone.',
         'Убираю...': 'Cleaning up...',
-        'Готово. Удалено картинок:': 'Done. Images deleted:',
-        'Превью перенесено:': 'Thumbnails moved:',
         'Убрать': 'Clean up',
         'Не удалось прочитать папку': 'Could not read the folder',
         'Обрезать': 'Crop',
         'Обрежьте стикер': 'Crop the sticker',
-        'Стикеры выключены — ни вы, ни персонажи их не отправляют.': 'Stickers are off — neither you nor the characters send them.',
         'Пока нет ни одного набора.': 'No sticker packs yet.',
         'Создать стикерпак': 'Create a sticker pack',
         'Один переключатель на все чаты': 'One switch for all chats',
         'Изменить набор': 'Edit pack',
-        'Коллаж уходит модели только через профиль подключения NOVA — с главным API Таверны персонаж выбирает стикеры по одним названиям.': 'The collage is only sent to the model through a NOVA connection profile — with the Tavern main API the character picks stickers by names alone.',
     };
 
     /** Перевод одной строки — для JS-строк, собираемых динамически. RU остаётся RU, если словарь молчит. */
@@ -9440,14 +9609,14 @@ sketch or construction lines.`,
                 }
                 $result.text('');
                 const parts = [];
-                if (scan.unused.length) parts.push(`${t('Удалить неиспользуемые картинки:')} ${scan.unused.length}.`);
-                if (scan.thumbsToMove.length) parts.push(`${t('Перенести превью в папку NOVA_thumbs:')} ${scan.thumbsToMove.length}.`);
-                novaConfirm(`${parts.join('<br>')}<br>${t('Картинки, которые ещё есть в ленте, переписках, стикерпаках или резервных копиях, не трогаются.')}`, async () => {
+                if (scan.unused.length) parts.push(`${t('Удалить картинок:')} ${scan.unused.length}`);
+                if (scan.thumbsToMove.length) parts.push(`${t('Перенести превью:')} ${scan.thumbsToMove.length}`);
+                novaConfirm(`${parts.join('<br>')}<br>${t('Используемые не тронутся.')}`, async () => {
                     $btn.prop('disabled', true);
                     $result.text(t('Убираю...'));
                     try {
                         const { deleted, moved } = await cleanNovaImageFolders(scan);
-                        $result.text(`${t('Готово. Удалено картинок:')} ${deleted}. ${t('Превью перенесено:')} ${moved}.`);
+                        $result.text(`${t('Удалено:')} ${deleted}, ${t('превью перенесено:')} ${moved}.`);
                         if ($('#nova-view-feed').hasClass('active')) renderFeed();
                     } catch (e) {
                         console.error('[NOVA] Уборка картинок не удалась', e);
