@@ -268,10 +268,26 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
         console.log('[NOVA] Настройки перенесены со старого ключа Link.');
     }
 
+    /**
+     * Старые сохранённые NPC могли получить от модели что угодно (разметку в имени,
+     * цвет с url(), внешнюю аватарку). Приводим к безопасному виду при каждой загрузке.
+     */
+    function sanitizeStoredNpc(n) {
+        if (!n || typeof n !== 'object') return;
+        if (/^https?:\/\//i.test(String(n.avatar || ''))) n.avatar = '';
+        n.color = safeColor(n.color, '#607d8b');
+        if (typeof n.name === 'string') n.name = n.name.replace(/[<>]/g, '');
+        if (typeof n.handle === 'string') n.handle = cleanHandle(n.handle) || n.handle.replace(/[<>"'`]/g, '');
+        if (typeof n.desc === 'string') n.desc = n.desc.replace(/[<>]/g, '');
+        if (typeof n.style === 'string') n.style = n.style.replace(/[<>]/g, '');
+    }
+
     function loadFolders() {
         const stContext = typeof SillyTavern !== 'undefined' ? SillyTavern.getContext() : null;
         if (stContext && stContext.extensionSettings?.NOVA?.customFolders) {
             customFolders = stContext.extensionSettings.NOVA.customFolders;
+            // Аватарки по внешним ссылкам (dicebear и т.п.) больше не грузим — вместо них инициал
+            customFolders.forEach(f => (f.npcs || []).forEach(sanitizeStoredNpc));
             // Раньше папка держала ОДИН chatId — активация в новом чате перепривязывала
             // папку туда и молча выкидывала из старого. Переносим на список chatIds:
             // папка теперь активна в КАЖДОМ чате, где её когда-либо активировали, разом
@@ -293,6 +309,7 @@ import { user_avatar as livePersonaAvatarId } from '../../../personas.js';
             if (Array.isArray(state.npcsData)) {
                 // Новый формат: папка Default редактируется целиком
                 defaultFolder.npcs = syncDefaultNpcsLanguage(state.npcsData);
+                defaultFolder.npcs.forEach(sanitizeStoredNpc);
             } else if (state.npcs) {
                 // Старый формат: сохранялись только флаги активности
                 defaultFolder.npcs.forEach(npc => {
@@ -1383,6 +1400,7 @@ sketch or construction lines.`,
 
         const endpoint = String(profile.endpoint || '').trim().replace(/\/+$/, '');
         if (!endpoint) throw new Error('Не заполнен URL эндпоинта');
+        if (!isAllowedImageEndpoint(endpoint)) throw new Error('Эндпоинт должен быть https:// (http — только для своей сети)');
         const apiKey = String(profile.apiKey || '').trim();
 
         const isGemini = profile.apiType === 'gemini';
@@ -1642,7 +1660,11 @@ sketch or construction lines.`,
 
     /** Читает сохранённый файл референса и отдаёт чистый base64 без префикса data:. */
     async function referenceToBase64(path) {
-        const res = await fetch(path.startsWith('/') || path.startsWith('http') ? path : `/${path}`);
+        // Только файлы из папки картинок Таверны: иначе путь из данных превращался бы
+        // в произвольный запрос из браузера
+        const local = String(path || '').trim().replace(/^\/+/, '');
+        if (!/^user\/images\//.test(local) || local.includes('..')) throw new Error('Картинка вне папки user/images');
+        const res = await fetch(`/${local}`);
         if (!res.ok) throw new Error(`Референс не открывается: ${res.status}`);
         const blob = await res.blob();
         return await new Promise((resolve, reject) => {
@@ -2873,6 +2895,31 @@ sketch or construction lines.`,
      * Три семейства эндпоинтов: OpenAI-совместимый (/v1/images/generations — DALL-E,
      * FLUX, SD через прокси), Gemini (nano-banana) и Naistera (/api/generate).
      */
+    /**
+     * Провайдер иногда отдаёт ссылку вместо картинки. Скачиваем и храним сами: внешняя
+     * ссылка в данных протухает и сдаёт ваш IP её владельцу при каждом показе.
+     */
+    async function providerImageToDataUrl(value) {
+        const src = String(value || '').trim();
+        if (src.startsWith('data:image/')) return src;
+        if (!/^https?:\/\//i.test(src)) throw new Error('Провайдер вернул не картинку');
+        let res;
+        try {
+            res = await fetch(src);
+        } catch (e) {
+            throw new Error('Провайдер вернул ссылку, а скачать её не удалось (сеть или CORS)');
+        }
+        if (!res.ok) throw new Error(`Ссылку от провайдера не скачать: ${res.status}`);
+        const blob = await res.blob();
+        if (!/^image\//.test(blob.type)) throw new Error('По ссылке от провайдера не картинка');
+        return await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('Не удалось прочитать картинку'));
+            reader.onload = () => resolve(String(reader.result));
+            reader.readAsDataURL(blob);
+        });
+    }
+
     async function generateNovaImage(prompt, profile, references = [], opts = null) {
         let text = String(prompt || '').trim();
         if (!text) throw new Error('Пустое описание картинки');
@@ -2880,6 +2927,7 @@ sketch or construction lines.`,
 
         const endpoint = String(profile.endpoint || '').trim().replace(/\/+$/, '');
         if (!endpoint) throw new Error(`У профиля «${profile.name}» не заполнен эндпоинт`);
+        if (!isAllowedImageEndpoint(endpoint)) throw new Error('Эндпоинт должен быть https:// (http — только для своей сети)');
         const apiKey = String(profile.apiKey || '').trim();
         const model = String(profile.model || '').trim();
         if (!model) throw new Error(`У профиля «${profile.name}» не выбрана модель`);
@@ -2948,7 +2996,7 @@ sketch or construction lines.`,
 
             const data = await res.json().catch(() => null);
             if (!data?.data_url) throw new Error('Naistera не вернула картинку (нет data_url)');
-            return data.data_url;
+            return await providerImageToDataUrl(data.data_url);
         }
 
         if (profile.apiType === 'gemini') {
@@ -3002,7 +3050,7 @@ sketch or construction lines.`,
         const first = (data?.data || [])[0];
         if (first?.b64_json) return `data:image/png;base64,${first.b64_json}`;
         // Часть провайдеров игнорирует response_format и отдаёт ссылку
-        if (first?.url) return first.url;
+        if (first?.url) return await providerImageToDataUrl(first.url);
         throw new Error('В ответе нет картинки');
     }
 
@@ -3097,7 +3145,7 @@ sketch or construction lines.`,
                 const dataUrl = await generateNovaImage(prompt, profile, refs, item.image_opts);
                 // Ссылку от провайдера не сохраняем локально: она протухнет через час-другой,
                 // а пост останется в ленте навсегда
-                const uploaded = dataUrl.startsWith('data:') ? await uploadNovaImageWithThumbnail(dataUrl) : { image: dataUrl, thumbnail: dataUrl };
+                const uploaded = await uploadNovaImageWithThumbnail(dataUrl);
                 item.image = uploaded.image;
                 item.thumbnail = uploaded.thumbnail;
                 item.imagePrompt = prompt;
@@ -4073,7 +4121,7 @@ sketch or construction lines.`,
         const seen = new WeakSet();
         (function walk(v) {
             if (typeof v === 'string') {
-                (v.match(NOVA_FILE_RE) || []).forEach(p => out.add(p));
+                (v.match(NOVA_FILE_RE) || []).forEach(p => { if (isNovaFilePath(p)) out.add(p); });
                 return;
             }
             if (!v || typeof v !== 'object' || seen.has(v)) return;
@@ -4088,7 +4136,14 @@ sketch or construction lines.`,
         return JSON.stringify(ctx?.extensionSettings?.NOVA || {});
     }
 
+    /** Только прямые файлы в user/images/NOVA и NOVA_thumbs, без «..» и подпапок. */
+    function isNovaFilePath(path) {
+        const s = String(path || '');
+        return /^user\/images\/NOVA(?:_thumbs)?\/[^/\\]+$/.test(s) && !s.includes('..') && !s.includes('%');
+    }
+
     async function deleteNovaFile(path) {
+        if (!isNovaFilePath(path)) throw new Error('Недопустимый путь картинки');
         const ctx = SillyTavern.getContext();
         const res = await fetch('/api/images/delete', {
             method: 'POST',
@@ -4259,9 +4314,9 @@ sketch or construction lines.`,
         // В разметке — только превью: полный файл открывается позже, во вьюере,
         // который сам подтянет item.image из настоящего объекта
         const thumbFallback = item.thumbnail && item.thumbnail !== item.image
-            ? `data-full="${escapeHtml(item.image)}" onerror="this.onerror=null;this.src=this.dataset.full"`
+            ? `data-full="${escapeHtml(item.image)}"`
             : '';
-        const imgTag = `<img class="nova-attached-image" src="${item.thumbnail || item.image}" onclick="window.novaOpenImageViewer(this)" loading="lazy" style="${item.imageRegenerating ? '' : extraStyle}" ${dataAttrs} ${thumbFallback}>`;
+        const imgTag = `<img class="nova-attached-image" src="${escapeHtml(item.thumbnail || item.image)}" loading="lazy" style="${item.imageRegenerating ? '' : extraStyle}" ${dataAttrs} ${thumbFallback}>`;
 
         // Перегенерация СУЩЕСТВУЮЩЕЙ картинки (🔄/✏️ во вьюере) не трогает
         // imagePending — старое изображение никуда не девается, пока не придёт
@@ -4444,6 +4499,81 @@ sketch or construction lines.`,
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
     }
+
+    // ── Данные от модели и из карточек: чистим на входе и экранируем на выходе ──
+
+    /** Имя/название: без разметки и кавычек, ограниченной длины. */
+    function cleanLabel(value, max = 60) {
+        return String(value ?? '').replace(/[<>"'`\\]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
+    }
+
+    /** Свободный текст (био, стиль): без угловых скобок. Кавычки оставляем — на выводе их экранирует escapeHtml. */
+    function cleanFreeText(value, max = 400) {
+        return String(value ?? '').replace(/[<>]/g, '').trim().slice(0, max);
+    }
+
+    /** @хэндл: только буквы, цифры, «_» и «.». Пусто, если ничего не осталось. */
+    function cleanHandle(value) {
+        const body = String(value ?? '').replace(/^@+/, '').replace(/[^\p{L}\p{N}_.]/gu, '').slice(0, 40);
+        return body ? `@${body}` : '';
+    }
+
+    /** Цвет в style="…": только #hex, иначе запасной. */
+    function safeColor(value, fallback = '#333') {
+        const v = String(value ?? '').trim();
+        return /^#[0-9a-f]{3,8}$/i.test(v) ? v : fallback;
+    }
+
+    /** Целое неотрицательное число (лайки, репосты): модель может прислать там что угодно. */
+    function safeCount(value) {
+        const n = Math.round(Number(value));
+        return Number.isFinite(n) && n > 0 ? Math.min(n, 1e12) : 0;
+    }
+
+    const NOVA_LOCAL_IMAGE_RE = /^(?:\/?user\/images\/[^\s"'<>`\\]+|data:image\/(?:png|jpe?g|gif|webp);base64,[a-z0-9+/=]+)$/i;
+    /** Картинка из текста поста: только наша папка или data:image — внешние ссылки (трекинг) не грузим. */
+    function isLocalImagePath(value) {
+        const v = String(value ?? '').trim();
+        return NOVA_LOCAL_IMAGE_RE.test(v) && !v.includes('..');
+    }
+
+    /** Из поста/ответа от модели берём только известные поля — остальные ключи в данные не попадают. */
+    function pickModelItemFields(raw) {
+        const item = {
+            text: String(raw?.text ?? ''),
+            likes: safeCount(raw?.likes),
+            retweets: safeCount(raw?.retweets),
+        };
+        if (raw?.time !== undefined && raw?.time !== null) item.time = String(raw.time).slice(0, 40);
+        if (typeof raw?.image_prompt === 'string' && raw.image_prompt.trim()) item.image_prompt = raw.image_prompt;
+        if (typeof raw?.image_caption === 'string' && raw.image_caption.trim()) item.image_caption = raw.image_caption.slice(0, 500);
+        return item;
+    }
+
+    /** https:// всегда; http:// только для своего компьютера и домашней сети. */
+    function isAllowedImageEndpoint(value) {
+        let u;
+        try { u = new URL(String(value ?? '').trim()); } catch { return false; }
+        if (u.protocol === 'https:') return true;
+        if (u.protocol !== 'http:') return false;
+        const h = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+        return h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h === '::1'
+            || /^127\./.test(h) || /^10\./.test(h) || /^192\.168\./.test(h)
+            || /^172\.(1[6-9]|2\d|3[01])\./.test(h) || /^169\.254\./.test(h);
+    }
+
+    // Битая картинка: превью подменяем полным файлом, аватар прячем. Раньше это делали
+    // inline-обработчики onerror в разметке — теперь один делегированный на страницу.
+    document.addEventListener('error', e => {
+        const img = e.target;
+        if (!(img instanceof HTMLImageElement)) return;
+        if (img.dataset.full && !img.dataset.fallbackTried) {
+            img.dataset.fallbackTried = '1';
+            img.src = img.dataset.full;
+            return;
+        }
+        if (img.classList.contains('nova-profile-avatar')) img.style.display = 'none';
+    }, true);
 
     /**
      * Находит, откуда вообще взялся item — пост, ответ или DM-сообщение — по ссылке
@@ -4828,6 +4958,7 @@ sketch or construction lines.`,
 
             $('#nova-image-viewer-download').on('click', async () => {
                 try {
+                    if (!isLocalImagePath(currentVersion.image)) throw new Error(t('скачать можно только сохранённую картинку'));
                     const res = await fetch(currentVersion.image);
                     const blob = await res.blob();
                     const blobUrl = URL.createObjectURL(blob);
@@ -4916,7 +5047,7 @@ sketch or construction lines.`,
                     const refs = useRefs ? await prepareReferences(matchReferences(author, promptText)) : [];
                     
                     const dataUrl = await generateNovaImage(promptText, profile, refs, opts);
-                    const uploaded = dataUrl.startsWith('data:') ? await uploadNovaImageWithThumbnail(dataUrl) : { image: dataUrl, thumbnail: dataUrl };
+                    const uploaded = await uploadNovaImageWithThumbnail(dataUrl);
 
                     // Добавляем новую версию
                     item.imageVersions.push({
@@ -4970,18 +5101,27 @@ sketch or construction lines.`,
 
     function formatPostText(text) {
         if (!text) return '';
-        
-        // Parse markdown images (e.g., for stickers)
-        let formatted = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
-            return `<img src="${url}" alt="${alt}" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 4px; display: block; object-fit: contain;">`;
-        });
-        
-        // Find @handle
-        formatted = formatted.replace(/@([a-zA-Z0-9_]+)/g, (match, handle) => {
+        const source = String(text);
+
+        // Сначала экранируем ВСЁ: HTML из ответа модели (или из карточки/лорбука через
+        // неё) отображается текстом. @упоминания и ![картинки] собираем из безопасных кусков
+        const withHandles = chunk => escapeHtml(chunk).replace(/@([a-zA-Z0-9_]+)/g, match => {
             return `<span class="nova-clickable-handle" data-handle="${match}" style="color: var(--nova-accent); cursor: pointer;" title="${t('Открыть профиль')}">${match}</span>`;
         });
 
-        return formatted;
+        let out = '';
+        let last = 0;
+        const imageRe = /!\[([^\]]*)\]\(([^)]+)\)/g;
+        let m;
+        while ((m = imageRe.exec(source))) {
+            out += withHandles(source.slice(last, m.index));
+            const url = m[2].trim();
+            out += isLocalImagePath(url)
+                ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(m[1])}" style="max-width: 100%; max-height: 200px; border-radius: 8px; margin-top: 4px; display: block; object-fit: contain;">`
+                : withHandles(m[0]);
+            last = m.index + m[0].length;
+        }
+        return out + withHandles(source.slice(last));
     }
 
     // ---- Персоны юзера ----
@@ -5156,8 +5296,8 @@ sketch or construction lines.`,
         }
         if (profile) return profile;
 
-        const fallbackHandle = handleKey ? '@' + handleKey : '@unknown';
-        const fallbackName = (rawName && String(rawName).trim()) || (handleKey ? fallbackHandle : 'Unknown');
+        const fallbackHandle = cleanHandle(handleKey) || '@unknown';
+        const fallbackName = cleanLabel(rawName) || (handleKey ? fallbackHandle : 'Unknown');
         return { name: fallbackName, handle: fallbackHandle, avatar: '', color: '#333' };
     }
 
@@ -5179,7 +5319,7 @@ sketch or construction lines.`,
             .map(r => {
                 const prof = resolveAuthorProfile(r.author_handle ?? r.authorHandle ?? r.handle, activeProfiles, r.name);
                 return {
-                    ...r,
+                    ...pickModelItemFields(r),
                     handle: prof.handle,
                     name: prof.name,
                     avatar: prof.avatar || '',
@@ -5364,8 +5504,8 @@ sketch or construction lines.`,
 
         feedPosts.forEach((post, index) => {
             const avatarHtml = post.avatar 
-                ? `<img src="${post.avatar}" class="nova-profile-avatar nova-clickable-profile" data-handle="${post.handle}" onerror="this.style.display='none'">` 
-                : `<div class="nova-profile-avatar nova-clickable-profile" data-handle="${post.handle}" style="background-color: ${post.color || '#333'}; color: white; font-weight: bold; font-size: 18px;">${(post.name || '?').charAt(0).toUpperCase()}</div>`;
+                ? `<img src="${escapeHtml(post.avatar)}" class="nova-profile-avatar nova-clickable-profile" data-handle="${escapeHtml(post.handle)}">` 
+                : `<div class="nova-profile-avatar nova-clickable-profile" data-handle="${escapeHtml(post.handle)}" style="background-color: ${safeColor(post.color, '#333')}; color: white; font-weight: bold; font-size: 18px;">${escapeHtml((post.name || '?').charAt(0).toUpperCase())}</div>`;
             
             const repliesCount = countRepliesDeep(post.replies);
 
@@ -5381,8 +5521,8 @@ sketch or construction lines.`,
                     ${avatarHtml}
                     <div class="nova-post-content">
                         <div class="nova-post-header">
-                            <div class="nova-post-name nova-clickable-profile" data-handle="${post.handle}">${post.name}</div>
-                            <div class="nova-post-handle nova-clickable-profile" data-handle="${post.handle}">${post.handle}</div>
+                            <div class="nova-post-name nova-clickable-profile" data-handle="${escapeHtml(post.handle)}">${escapeHtml(post.name)}</div>
+                            <div class="nova-post-handle nova-clickable-profile" data-handle="${escapeHtml(post.handle)}">${escapeHtml(post.handle)}</div>
                             <div class="nova-post-time">· ${describePostAge(post)}</div>
                         </div>
                         <div class="nova-post-text">${formatPostText(post.text)}</div>
@@ -5390,8 +5530,8 @@ sketch or construction lines.`,
                         ${renderMusicShare(post)}
                         <div class="nova-post-stats">
                             <span title="${t('Ответы')}"><i class="fa-regular fa-comment"></i> ${repliesCount}</span>
-                            <span title="${t('Репосты')}"><i class="fa-solid fa-retweet"></i> ${post.retweets || 0}</span>
-                            <span title="${t('Лайки')}"><i class="fa-regular fa-heart"></i> ${post.likes || 0}</span>
+                            <span title="${t('Репосты')}"><i class="fa-solid fa-retweet"></i> ${safeCount(post.retweets)}</span>
+                            <span title="${t('Лайки')}"><i class="fa-regular fa-heart"></i> ${safeCount(post.likes)}</span>
                         </div>
                     </div>
                 </div>
@@ -5463,8 +5603,8 @@ sketch or construction lines.`,
         }
 
         const avatarHtml = post.avatar
-            ? `<img src="${post.avatar}" class="nova-profile-avatar nova-clickable-profile" data-handle="${post.handle}" onerror="this.style.display='none'">` 
-            : `<div class="nova-profile-avatar nova-clickable-profile" data-handle="${post.handle}" style="background-color: ${post.color || '#333'}; color: white; font-weight: bold; font-size: 18px;">${(post.name || '?').charAt(0).toUpperCase()}</div>`;
+            ? `<img src="${escapeHtml(post.avatar)}" class="nova-profile-avatar nova-clickable-profile" data-handle="${escapeHtml(post.handle)}">` 
+            : `<div class="nova-profile-avatar nova-clickable-profile" data-handle="${escapeHtml(post.handle)}" style="background-color: ${safeColor(post.color, '#333')}; color: white; font-weight: bold; font-size: 18px;">${escapeHtml((post.name || '?').charAt(0).toUpperCase())}</div>`;
         
         const repliesCount = countRepliesDeep(post.replies);
         if (!post.replies) post.replies = [];
@@ -5475,17 +5615,17 @@ sketch or construction lines.`,
                 <div style="display: flex; align-items: center; gap: 12px;">
                     ${avatarHtml.replace('class="nova-profile-avatar"', 'class="nova-profile-avatar" style="width: 48px; height: 48px; min-width: 48px; font-size: 24px;"')}
                     <div style="display: flex; flex-direction: column;">
-                        <span class="nova-clickable-profile" data-handle="${post.handle}" style="font-weight: 800; font-size: 16px; color: var(--nova-text);">${post.name}</span>
-                        <span class="nova-clickable-profile" data-handle="${post.handle}" style="color: var(--nova-text-muted); font-size: 15px;">${post.handle}</span>
+                        <span class="nova-clickable-profile" data-handle="${escapeHtml(post.handle)}" style="font-weight: 800; font-size: 16px; color: var(--nova-text);">${escapeHtml(post.name)}</span>
+                        <span class="nova-clickable-profile" data-handle="${escapeHtml(post.handle)}" style="color: var(--nova-text-muted); font-size: 15px;">${escapeHtml(post.handle)}</span>
                     </div>
                 </div>
                 <div class="nova-post-text" style="font-size: 18px; line-height: 1.5; margin: 4px 0;">${formatPostText(post.text)}</div>
                 ${renderAttachedImage({...post, type: 'post', feedIndex: index})}
                 ${renderMusicShare(post)}
                 <div class="nova-post-stats" style="display: flex; gap: 20px; padding: 16px 0; margin: 0; font-size: 15px; color: var(--nova-text-muted); border-top: 1px solid var(--nova-border);">
-                    <span title="${t('Ответить')}" class="nova-action-reply" data-handle="${post.handle}" data-text="${post.text.replace(/"/g, '&quot;')}" style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><i class="fa-regular fa-comment"></i> <b style="color: var(--nova-text);">${repliesCount}</b></span>
-                    <span title="${t('Ретвиты')}" style="display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-retweet"></i> <b style="color: var(--nova-text);">${post.retweets || 0}</b></span>
-                    <span title="${t('Лайки')}" style="display: flex; align-items: center; gap: 6px;"><i class="fa-regular fa-heart"></i> <b style="color: var(--nova-text);">${post.likes || 0}</b></span>
+                    <span title="${t('Ответить')}" class="nova-action-reply" data-handle="${escapeHtml(post.handle)}" data-text="${escapeHtml(post.text)}" style="display: flex; align-items: center; gap: 6px; cursor: pointer;"><i class="fa-regular fa-comment"></i> <b style="color: var(--nova-text);">${repliesCount}</b></span>
+                    <span title="${t('Ретвиты')}" style="display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-retweet"></i> <b style="color: var(--nova-text);">${safeCount(post.retweets)}</b></span>
+                    <span title="${t('Лайки')}" style="display: flex; align-items: center; gap: 6px;"><i class="fa-regular fa-heart"></i> <b style="color: var(--nova-text);">${safeCount(post.likes)}</b></span>
                 </div>
             </div>
         `;
@@ -5501,8 +5641,8 @@ sketch or construction lines.`,
                 const currentPath = [...parentPath, i];
                 if (!reply.replies) reply.replies = [];
                 const rAvatarHtml = reply.avatar 
-                    ? `<img src="${reply.avatar}" class="nova-profile-avatar nova-clickable-profile" data-handle="${reply.handle}" onerror="this.style.display='none'" style="width: 32px; height: 32px; min-width: 32px;">` 
-                    : `<div class="nova-profile-avatar nova-clickable-profile" data-handle="${reply.handle}" style="width: 32px; height: 32px; min-width: 32px; background-color: ${reply.color || '#333'}; color: white; font-weight: bold; font-size: 14px;">${(reply.name || '?').charAt(0).toUpperCase()}</div>`;
+                    ? `<img src="${escapeHtml(reply.avatar)}" class="nova-profile-avatar nova-clickable-profile" data-handle="${escapeHtml(reply.handle)}" style="width: 32px; height: 32px; min-width: 32px;">` 
+                    : `<div class="nova-profile-avatar nova-clickable-profile" data-handle="${escapeHtml(reply.handle)}" style="width: 32px; height: 32px; min-width: 32px; background-color: ${safeColor(reply.color, '#333')}; color: white; font-weight: bold; font-size: 14px;">${escapeHtml((reply.name || '?').charAt(0).toUpperCase())}</div>`;
                 
                 const hasReplies = reply.replies && reply.replies.length > 0;
                 const replyKey = currentPath.join(',');
@@ -5519,8 +5659,8 @@ sketch or construction lines.`,
                             </div>
                             <div class="nova-reply-content" style="flex: 1; font-size: 14px;">
                                 <div class="nova-reply-header" style="display: flex; align-items: baseline; gap: 6px;">
-                                    <span class="nova-clickable-profile" data-handle="${reply.handle}" style="font-weight: bold; color: var(--nova-text);">${reply.name}</span>
-                                    <span class="nova-clickable-profile" data-handle="${reply.handle}" style="color: var(--nova-text-muted); font-size: 13px;">${reply.handle}</span>
+                                    <span class="nova-clickable-profile" data-handle="${escapeHtml(reply.handle)}" style="font-weight: bold; color: var(--nova-text);">${escapeHtml(reply.name)}</span>
+                                    <span class="nova-clickable-profile" data-handle="${escapeHtml(reply.handle)}" style="color: var(--nova-text-muted); font-size: 13px;">${escapeHtml(reply.handle)}</span>
                                 </div>
                                 <div class="nova-reply-text" style="color: var(--nova-text); margin-top: 4px;">${formatPostText(reply.text)}</div>
                                 ${renderAttachedImage({...reply, type: 'reply', feedIndex: index, replyPath: currentPath.join(',')})}
@@ -5687,9 +5827,9 @@ sketch or construction lines.`,
             const activeProfiles = getActiveProfiles();
             const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || t('Вы'), color: '#1da1f2' };
             if (userProfile.avatar) {
-                $replyAvatar.replaceWith(`<img id="nova-single-post-reply-avatar" src="${userProfile.avatar}" class="nova-profile-avatar" style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; object-fit: cover;">`);
+                $replyAvatar.replaceWith(`<img id="nova-single-post-reply-avatar" src="${escapeHtml(userProfile.avatar)}" class="nova-profile-avatar" style="width: 32px; height: 32px; min-width: 32px; border-radius: 50%; object-fit: cover;">`);
             } else {
-                $replyAvatar.replaceWith(`<div id="nova-single-post-reply-avatar" class="nova-profile-avatar" style="width: 32px; height: 32px; min-width: 32px; background-color: ${userProfile.color || '#1da1f2'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border-radius: 50%;">${(userProfile.name || '?').charAt(0).toUpperCase()}</div>`);
+                $replyAvatar.replaceWith(`<div id="nova-single-post-reply-avatar" class="nova-profile-avatar" style="width: 32px; height: 32px; min-width: 32px; background-color: ${safeColor(userProfile.color, '#1da1f2')}; color: white; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: bold; border-radius: 50%;">${escapeHtml((userProfile.name || '?').charAt(0).toUpperCase())}</div>`);
             }
         }
 
@@ -5754,16 +5894,16 @@ sketch or construction lines.`,
             } else {
                 activeProfiles.forEach(p => {
                     const avatarHtml = p.avatar 
-                        ? `<img src="${p.avatar}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">` 
-                        : `<div style="width:48px;height:48px;border-radius:50%;background-color:${p.color || '#333'};color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:20px;">${(p.name || '?').charAt(0).toUpperCase()}</div>`;
+                        ? `<img src="${escapeHtml(p.avatar)}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;">` 
+                        : `<div style="width:48px;height:48px;border-radius:50%;background-color:${safeColor(p.color, '#333')};color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:20px;">${escapeHtml((p.name || '?').charAt(0).toUpperCase())}</div>`;
                     
                     const phtml = `
-                        <div class="nova-new-dm-profile-card" data-handle="${p.handle}" style="display:flex; gap:12px; align-items:center; padding:12px; border-radius:12px; background:var(--nova-surface-hover); cursor:pointer;">
-                            <input type="checkbox" class="nova-new-group-checkbox" value="${p.handle}" style="display:none; width: 18px; height: 18px; accent-color: var(--nova-accent); cursor: pointer; flex-shrink: 0;">
+                        <div class="nova-new-dm-profile-card" data-handle="${escapeHtml(p.handle)}" style="display:flex; gap:12px; align-items:center; padding:12px; border-radius:12px; background:var(--nova-surface-hover); cursor:pointer;">
+                            <input type="checkbox" class="nova-new-group-checkbox" value="${escapeHtml(p.handle)}" style="display:none; width: 18px; height: 18px; accent-color: var(--nova-accent); cursor: pointer; flex-shrink: 0;">
                             ${avatarHtml}
                             <div>
-                                <div style="font-weight:bold; font-size:15px;">${p.name}</div>
-                                <div style="font-size:13px; color:var(--nova-text-muted);">${p.handle}</div>
+                                <div style="font-weight:bold; font-size:15px;">${escapeHtml(p.name)}</div>
+                                <div style="font-size:13px; color:var(--nova-text-muted);">${escapeHtml(p.handle)}</div>
                             </div>
                         </div>
                     `;
@@ -5923,12 +6063,12 @@ sketch or construction lines.`,
                     ${avatarHtml}
                     <div style="flex: 1; overflow: hidden;">
                         <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px;">
-                            <div class="nova-truncate" style="font-weight: 700; font-size: 15px; flex-shrink: 1;">${dm.name} <span style="font-size: 13px; font-weight: normal; color: var(--nova-text-muted);">${describeThreadSubtitle(dm)}</span></div>
+                            <div class="nova-truncate" style="font-weight: 700; font-size: 15px; flex-shrink: 1;">${escapeHtml(dm.name)} <span style="font-size: 13px; font-weight: normal; color: var(--nova-text-muted);">${describeThreadSubtitle(dm)}</span></div>
                             <div style="font-size: 12px; color: var(--nova-text-muted); flex-shrink: 0;">${lastMsg.time || ''}</div>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
                             <div class="nova-dm-text" style="color: var(--nova-text-muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80%;">
-                                ${lastMsg.sender === 'user' ? `${t('Вы')}: ` : ''}${lastMsg.sticker ? `${t('Стикер')} «${escapeHtml(lastMsg.sticker.name)}»` : lastMsg.text}
+                                ${lastMsg.sender === 'user' ? `${t('Вы')}: ` : ''}${lastMsg.sticker ? `${t('Стикер')} «${escapeHtml(lastMsg.sticker.name)}»` : escapeHtml(lastMsg.text)}
                             </div>
                             <div style="display: flex; gap: 8px; align-items: center;">
                                 ${unreadBadge}
@@ -6219,7 +6359,7 @@ sketch or construction lines.`,
             const rowDirection = isUser ? 'row-reverse' : 'row';
 
             const senderNameHtml = (thread.isGroup && !isUser)
-                ? `<div style="font-size: 11px; color: var(--nova-accent); margin-bottom: 2px; padding-left: 4px; font-weight: bold;">${msg.sender_name || msg.sender}</div>`
+                ? `<div style="font-size: 11px; color: var(--nova-accent); margin-bottom: 2px; padding-left: 4px; font-weight: bold;">${escapeHtml(msg.sender_name || msg.sender)}</div>`
                 : '';
 
             const msgHtml = `
@@ -6773,14 +6913,14 @@ sketch or construction lines.`,
         const box = `width:${size}px;height:${size}px;min-width:${size}px;`;
 
         if (thread?.avatar) {
-            return `<img src="${thread.avatar}" class="${cls}" onerror="this.style.display='none'" style="${box}object-fit:cover;">`;
+            return `<img src="${escapeHtml(thread.avatar)}" class="${cls}" style="${box}object-fit:cover;">`;
         }
 
         const inner = thread?.isGroup
             ? `<i class="fa-solid fa-user-group" style="font-size:${Math.round(size * 0.4)}px;"></i>`
             : (thread?.name || '?').charAt(0).toUpperCase();
 
-        return `<div class="${cls}" style="${box}background-color:${thread?.color || '#333'};color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:${Math.round(size * 0.42)}px;">${inner}</div>`;
+        return `<div class="${cls}" style="${box}background-color:${safeColor(thread?.color, '#333')};color:white;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:${Math.round(size * 0.42)}px;">${inner}</div>`;
     }
 
     // Подпись под названием: у человека — хэндл, у группы он бессмысленный, показываем состав
@@ -7718,7 +7858,7 @@ sketch or construction lines.`,
         // В беседе важно, кому именно ушли деньги — иначе перевод выглядит адресованным всем
         const toName = String(transfer?.to_name || '').trim();
         const label = isUser
-            ? (toName ? `${t('Вы отправили')} — ${toName}` : t('Вы отправили'))
+            ? (toName ? `${t('Вы отправили')} — ${escapeHtml(toName)}` : t('Вы отправили'))
             : t('Вам перевели');
         return `
             <div class="nova-transfer-card ${isUser ? 'outgoing' : 'incoming'}">
@@ -7726,7 +7866,7 @@ sketch or construction lines.`,
                 <div style="min-width: 0;">
                     <div class="nova-transfer-amount">${formatMoney(transfer?.amount, transfer?.currency)}</div>
                     <div class="nova-transfer-label">${label}</div>
-                    ${note ? `<div class="nova-transfer-note">${note}</div>` : ''}
+                    ${note ? `<div class="nova-transfer-note">${escapeHtml(note)}</div>` : ''}
                 </div>
             </div>
         `;
@@ -8358,7 +8498,7 @@ sketch or construction lines.`,
                 const replies = mapRepliesRecursive(p.replies, activeProfiles);
 
                 return {
-                    ...p,
+                    ...pickModelItemFields(p),
                     handle: profile.handle,
                     name: profile.name,
                     avatar: profile.avatar || '',
@@ -8555,18 +8695,20 @@ sketch or construction lines.`,
             // содержимое папки на языке РОЛЕВОЙ (это NPC, а не интерфейс), значит и это тоже
             const newFolder = {
                 id: 'folder_' + Date.now(),
-                name: parsed.folder_name || (NovaPrompts.rp().code === 'en' ? 'Generated NPCs' : 'Сгенерированные NPC'),
+                name: cleanLabel(parsed.folder_name) || (NovaPrompts.rp().code === 'en' ? 'Generated NPCs' : 'Сгенерированные NPC'),
                 icon: 'fa-robot',
                 chatIds: [stContext.chatId],
                 active: true,
-                npcs: parsed.npcs.map((n, i) => ({
+                // Всё от модели чистим: имя/хэндл — без разметки, цвет — только #hex, аватар —
+                // без внешних сервисов (в карточке рисуется инициал на цветном фоне)
+                npcs: parsed.npcs.filter(n => n && typeof n === 'object').map((n, i) => ({
                     id: 'npc_' + Date.now() + '_' + i,
-                    name: n.name,
-                    handle: n.handle,
-                    avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${n.seed || n.name}`,
-                    color: n.color || '#' + Math.floor(Math.random()*16777215).toString(16),
-                    desc: n.desc,
-                    style: n.style,
+                    name: cleanLabel(n.name) || `NPC ${i + 1}`,
+                    handle: cleanHandle(n.handle) || `@npc_${i + 1}`,
+                    avatar: '',
+                    color: safeColor(n.color, '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')),
+                    desc: cleanFreeText(n.desc, 500),
+                    style: cleanFreeText(n.style, 300),
                     active: true
                 }))
             };
@@ -9315,6 +9457,10 @@ sketch or construction lines.`,
         'Уже отправленные стикеры останутся в переписках.': 'Stickers already sent will stay in the chats.',
         'Выйти без сохранения? Изменения в наборе пропадут.': 'Leave without saving? Changes to the pack will be lost.',
         'Выйти': 'Leave',
+        'Уходят на ваш image-эндпоинт.': 'Sent to your image endpoint.',
+        'скачать можно только сохранённую картинку': 'only a saved image can be downloaded',
+        'Ключ сохранён': 'Key saved',
+        'Нужен https:// (http — только для своей сети).': 'https:// is required (http only for your own network).',
         'Сбросить': 'Reset',
         'Этот набор': 'This pack',
         'Изменить стикер': 'Edit sticker',
@@ -9817,9 +9963,9 @@ sketch or construction lines.`,
             const userProfile = activeProfiles.find(ap => ap.isUser) || { name: stContext.name1 || t('Вы'), color: '#1da1f2' };
             const $avatar = $('#nova-create-post-avatar');
             if (userProfile.avatar) {
-                $avatar.replaceWith(`<img id="nova-create-post-avatar" src="${userProfile.avatar}" class="nova-profile-avatar" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover;">`);
+                $avatar.replaceWith(`<img id="nova-create-post-avatar" src="${escapeHtml(userProfile.avatar)}" class="nova-profile-avatar" style="width: 48px; height: 48px; min-width: 48px; border-radius: 50%; object-fit: cover;">`);
             } else {
-                $avatar.replaceWith(`<div id="nova-create-post-avatar" class="nova-profile-avatar" style="width: 48px; height: 48px; min-width: 48px; background-color: ${userProfile.color || '#1da1f2'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; border-radius: 50%;">${(userProfile.name || '?').charAt(0).toUpperCase()}</div>`);
+                $avatar.replaceWith(`<div id="nova-create-post-avatar" class="nova-profile-avatar" style="width: 48px; height: 48px; min-width: 48px; background-color: ${safeColor(userProfile.color, '#1da1f2')}; color: white; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; border-radius: 50%;">${escapeHtml((userProfile.name || '?').charAt(0).toUpperCase())}</div>`);
             }
             $('#nova-create-post-input').val('');
             $('#nova-create-post-submit').prop('disabled', true);
@@ -10250,7 +10396,8 @@ sketch or construction lines.`,
         if (active) {
             $('#nova-image-profile-name').val(active.name || '');
             $('#nova-image-profile-endpoint').val(active.endpoint || '');
-            $('#nova-image-profile-key').val(active.apiKey || '');
+            // Сам ключ в поле не кладём (он остаётся в DOM): пустое поле = «не менять»
+            $('#nova-image-profile-key').val('').attr('placeholder', active.apiKey ? t('Ключ сохранён') : t('API-ключ'));
         }
         updateImageTypeRows();
 
@@ -10781,8 +10928,14 @@ sketch or construction lines.`,
             if (!profile) return;
             profile.name = $('#nova-image-profile-name').val().trim() || t('Без названия');
             profile.apiType = String($('#nova-image-profile-type').attr('data-value') || 'openai');
-            profile.endpoint = $('#nova-image-profile-endpoint').val().trim();
-            profile.apiKey = $('#nova-image-profile-key').val().trim();
+            const endpointInput = $('#nova-image-profile-endpoint').val().trim();
+            if (endpointInput && !isAllowedImageEndpoint(endpointInput)) {
+                toastr.error(t('Нужен https:// (http — только для своей сети).'), 'NOVA');
+                return;
+            }
+            profile.endpoint = endpointInput;
+            const typedKey = $('#nova-image-profile-key').val().trim();
+            if (typedKey) profile.apiKey = typedKey;
             profile.model = String($('#nova-image-profile-model').attr('data-value') || '').trim();
             profile.aspect_ratio = String($('#nova-image-profile-aspect').attr('data-value') || '1:1');
             profile.image_size = String($('#nova-image-profile-imagesize').attr('data-value') || '1K');
@@ -11066,25 +11219,25 @@ sketch or construction lines.`,
     // name/desc/style — контент ролевой, поэтому у каждого NPC своя ru- и en-версия;
     // остальные поля (handle/avatar/color) языка не имеют и одни на оба варианта.
     const DEFAULT_NPCS_SEED = [
-            { id: 'n1', handle: '@meow_irl', avatar: 'https://i.postimg.cc/cJ6BPnS1/faa1669c512626a8317925d204d3f92a.jpg', color: '#ff9800', active: true,
+            { id: 'n1', handle: '@meow_irl', avatar: '', color: '#ff9800', active: true,
                 ru: { name: 'котик щитпостер', desc: 'Постит абстрактные мемы, картинки с котами и экзистенциальный кризис.', style: 'всё с маленькой буквы, жиза, постирония' },
                 en: { name: 'shitposter cat', desc: 'Posts abstract memes, cat pictures, and existential crises.', style: 'everything lowercase, deadpan realism, post-irony' } },
-            { id: 'n2', handle: '@breaking_now', avatar: 'https://i.postimg.cc/x8HWVZL5/3e4fbb3d4cff3808056b9a6f050c0234.jpg', color: '#e91e63', active: true,
+            { id: 'n2', handle: '@breaking_now', avatar: '', color: '#e91e63', active: true,
                 ru: { name: 'Global Updates', desc: 'Агрегатор новостей. Постит сухие факты о том, что происходит в мире.', style: 'Официальный тон, срочные новости, 🚨 BREAKING 🚨' },
                 en: { name: 'Global Updates', desc: 'A news aggregator. Posts dry facts about what is happening in the world.', style: 'Official tone, breaking news, 🚨 BREAKING 🚨' } },
-            { id: 'n3', handle: '@logic_enjoyer', avatar: 'https://i.postimg.cc/B6bDj96Y/103224cfd2aeca0001e3e9f9c7c2e9c1.jpg', color: '#607d8b', active: true,
+            { id: 'n3', handle: '@logic_enjoyer', avatar: '', color: '#607d8b', active: true,
                 ru: { name: 'Actually...', desc: 'Reply Guy. Приходит в чужие треды только для того, чтобы доказать, что автор не прав.', style: 'Начинает с "Технически...", ссылки на статьи, полное отсутствие эмпатии.' },
                 en: { name: 'Actually...', desc: 'A reply guy. Shows up in other people\'s threads solely to prove the author wrong.', style: 'Starts with "Actually...", links to articles, a complete absence of empathy.' } },
-            { id: 'n4', handle: '@main_character', avatar: 'https://i.postimg.cc/7ZLmgcbp/70c3e7f7a1a418bf56d7c62bd546b97e.jpg', color: '#ffb300', active: true,
+            { id: 'n4', handle: '@main_character', avatar: '', color: '#ffb300', active: true,
                 ru: { name: 'Spark', desc: 'Синдром главного героя. Уверен, что любое событие в мире происходит из-за него или ради него.', style: 'Постоянно пишет про себя, драматизирует, "Я не могу поверить, что это случилось СО МНОЙ".' },
                 en: { name: 'Spark', desc: 'Main character syndrome. Convinced every event in the world happens because of them, or for them.', style: 'Constantly writes about themselves, dramatizes everything, "I can\'t believe this happened to ME".' } },
-            { id: 'n5', handle: '@based_sigma', avatar: 'https://i.postimg.cc/rmymmShL/63e874716b41b8f6cb1f6aaf97db9088.jpg', color: '#e53935', active: true,
+            { id: 'n5', handle: '@based_sigma', avatar: '', color: '#e53935', active: true,
                 ru: { name: 'Альфа-Мыслитель', desc: 'Уверен, что женщины созданы для обслуживания мужчин. Агрессивно доказывает это в каждом треде, прикрываясь "биологией" и "природой".', style: 'Псевдонаучный сексизм, снобизм, обращается к женщинам "милочка". Часто приплетает эволюцию, обесценивает чужое мнение.' },
                 en: { name: 'Based Sigma', desc: 'Convinced women exist to serve men. Aggressively argues this in every thread, hiding behind "biology" and "nature".', style: 'Pseudo-scientific sexism, condescension, calls women "sweetheart". Frequently drags in evolution, dismisses other people\'s opinions.' } },
-            { id: 'n6', handle: '@brainrot_diary', avatar: 'https://i.postimg.cc/d3qSg0t4/a1f9350400f3aa252b05c7694afc108e.jpg', color: '#4caf50', active: true,
+            { id: 'n6', handle: '@brainrot_diary', avatar: '', color: '#4caf50', active: true,
                 ru: { name: 'delusional era ✨', desc: 'Ведет этот аккаунт исключительно ради своей гиперфиксации на Главном Герое (юзере). Пишет AU-зарисовки в телефоне и выкладывает их скриншотами. Готова отменить любого, кто криво посмотрит на её краша. Живет в выдуманных сценариях 24/7.', style: 'Эмоциональные качели. Постоянный спам буквами от переизбытка чувств (ахвхахвх), избыток плачущих и блестящих эмодзи (😭🤧✨💖). Использует фразы: «я буквально кричу», «почему он такой софт», «я не доживу до завтра».' },
                 en: { name: 'delusional era ✨', desc: 'Runs this account purely for their hyperfixation on the Main Character (the user). Writes AU snippets on their phone and posts them as screenshots. Ready to cancel anyone who so much as looks at their crush wrong. Lives in made-up scenarios 24/7.', style: 'Emotional rollercoaster. Constant spam of letters from an overflow of feelings (ahhhhh), excessive crying and sparkly emojis (😭🤧✨💖). Uses phrases like: "I\'m literally screaming", "why is he so soft", "I will not survive until tomorrow".' } },
-            { id: 'n7', handle: '@nanami_apologist', avatar: 'https://i.postimg.cc/44q98SLd/9455e255421738e576534e9b80ae70d8.jpg', color: '#3f51b5', active: true,
+            { id: 'n7', handle: '@nanami_apologist', avatar: '', color: '#3f51b5', active: true,
                 ru: { name: 'nanami simp ☕', desc: 'Циничная лучшая подруга @brainrot_diary. В своей ленте постоянно жалуется на выгорание, симпит Нанами Кенто и регулярно напоминает подписчикам, что Годжо Сатору переоценен. Однако, как только первая девочка постит что-то про юзера, она тут же врывается в реплаи, чтобы агрессивно её поддержать.', style: 'Сухой сарказм, постирония, мемы по Магической Битве. Резко переключается на капс, когда комментирует посты подруги. Часто жалуется на усталость и отсутствие логики у других людей в ленте.' },
                 en: { name: 'nanami simp ☕', desc: 'The cynical best friend of @brainrot_diary. Constantly complains about burnout in her own feed, simps for Nanami Kento, and regularly reminds followers that Gojo Satoru is overrated. But the moment her friend posts something about the user, she instantly storms into the replies to aggressively back her up.', style: 'Dry sarcasm, post-irony, Jujutsu Kaisen memes. Switches sharply to all caps when commenting on her friend\'s posts. Frequently complains about being tired and about everyone else\'s lack of logic in the feed.' } },
     ];
@@ -11214,11 +11367,11 @@ sketch or construction lines.`,
                     const parent = item.parentPost;
                     parentHtml = `
                         <div class="nova-post-parent" style="padding: 12px 16px; border-bottom: 1px solid var(--nova-border); background: var(--nova-inset); margin-bottom: 0;">
-                            <div style="font-size: 12px; color: var(--nova-text-muted); margin-bottom: 6px;"><i class="fa-solid fa-reply"></i> ${t('В ответ на')} ${parent.handle}</div>
+                            <div style="font-size: 12px; color: var(--nova-text-muted); margin-bottom: 6px;"><i class="fa-solid fa-reply"></i> ${t('В ответ на')} ${escapeHtml(parent.handle)}</div>
                             <div style="display: flex; gap: 12px;">
-                                ${parent.avatar ? `<img src="${parent.avatar}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">` : `<div style="width: 24px; height: 24px; border-radius: 50%; background-color: ${parent.color || '#333'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">${(parent.name || '?').charAt(0).toUpperCase()}</div>`}
+                                ${parent.avatar ? `<img src="${escapeHtml(parent.avatar)}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">` : `<div style="width: 24px; height: 24px; border-radius: 50%; background-color: ${safeColor(parent.color, '#333')}; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">${escapeHtml((parent.name || '?').charAt(0).toUpperCase())}</div>`}
                                 <div style="flex: 1;">
-                                    <div style="font-size: 13px; font-weight: 600; display: inline-block;">${parent.name}</div>
+                                    <div style="font-size: 13px; font-weight: 600; display: inline-block;">${escapeHtml(parent.name)}</div>
                                     <div style="font-size: 13px; margin-top: 2px; color: var(--nova-text-muted);">${formatPostText(parent.text)}</div>
                                 </div>
                             </div>
@@ -11230,11 +11383,11 @@ sketch or construction lines.`,
                     <div class="nova-post-container nova-long-pressable" data-item-type="post" data-index="${item.feedIndex}" style="cursor: pointer; border-bottom: 1px solid var(--nova-border); transition: background 0.2s;">
                         ${parentHtml}
                         <div class="nova-post" style="border-bottom: none; border-radius: 0;">
-                            ${item.avatar ? `<img src="${item.avatar}" class="nova-profile-avatar">` : `<div class="nova-profile-avatar" style="background-color: ${item.color || '#333'}; color: white; font-weight: bold; font-size: 18px;">${(item.name || '?').charAt(0).toUpperCase()}</div>`}
+                            ${item.avatar ? `<img src="${escapeHtml(item.avatar)}" class="nova-profile-avatar">` : `<div class="nova-profile-avatar" style="background-color: ${safeColor(item.color, '#333')}; color: white; font-weight: bold; font-size: 18px;">${escapeHtml((item.name || '?').charAt(0).toUpperCase())}</div>`}
                             <div class="nova-post-content">
                                 <div class="nova-post-header">
-                                    <div class="nova-post-name">${item.name}</div>
-                                    <div class="nova-post-handle">${item.handle}</div>
+                                    <div class="nova-post-name">${escapeHtml(item.name)}</div>
+                                    <div class="nova-post-handle">${escapeHtml(item.handle)}</div>
                                     <div class="nova-post-time">· ${describePostAge(item)}</div>
                                 </div>
                                 <div class="nova-post-text">${formatPostText(item.text)}</div>
@@ -11242,8 +11395,8 @@ sketch or construction lines.`,
                                 ${renderMusicShare(item)}
                                 <div class="nova-post-stats">
                                     <span title="${t('Ответы')}"><i class="fa-regular fa-comment"></i> ${item.replies ? item.replies.length : Math.floor(Math.random() * 20)}</span>
-                                    <span title="${t('Репосты')}"><i class="fa-solid fa-retweet"></i> ${item.retweets || 0}</span>
-                                    <span title="${t('Лайки')}"><i class="fa-regular fa-heart"></i> ${item.likes || 0}</span>
+                                    <span title="${t('Репосты')}"><i class="fa-solid fa-retweet"></i> ${safeCount(item.retweets)}</span>
+                                    <span title="${t('Лайки')}"><i class="fa-regular fa-heart"></i> ${safeCount(item.likes)}</span>
                                 </div>
                             </div>
                         </div>
@@ -11394,10 +11547,10 @@ sketch or construction lines.`,
                 const html = `
                     <div class="nova-profile-card nova-char-card" data-member-id="${memberId}" style="${isDisabled ? 'opacity: 0.5;' : ''}">
                         <div class="nova-profile-header">
-                            ${avatarUrl ? `<img src="${avatarUrl}" class="nova-profile-avatar" onerror="this.style.display='none'">` : `<div class="nova-profile-avatar"><i class="fa-solid fa-user"></i></div>`}
+                            ${avatarUrl ? `<img src="${escapeHtml(avatarUrl)}" class="nova-profile-avatar">` : `<div class="nova-profile-avatar"><i class="fa-solid fa-user"></i></div>`}
                             <div class="nova-profile-info" style="cursor:pointer;" title="${t('Открыть публичный профиль')}">
-                                <div class="nova-profile-name">${name}</div>
-                                <div class="nova-profile-handle">${handle}</div>
+                                <div class="nova-profile-name">${escapeHtml(name)}</div>
+                                <div class="nova-profile-handle">${escapeHtml(handle)}</div>
                             </div>
 
                             ${char.isUser ? '' : `
@@ -11433,7 +11586,7 @@ sketch or construction lines.`,
 
                             <div style="margin-bottom: 12px; display: flex; align-items: center; gap: 12px;">
                                 <div style="position: relative; cursor: pointer;" class="nova-avatar-upload-wrapper" title="${t('Загрузить новый аватар')}">
-                                    <img class="nova-profile-avatar-preview" src="${avatarUrl}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
+                                    <img class="nova-profile-avatar-preview" src="${escapeHtml(avatarUrl)}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">
                                     <div style="position: absolute; bottom: -4px; right: -4px; background: var(--nova-accent); color: white; border-radius: 50%; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px;"><i class="fa-solid fa-camera"></i></div>
                                 </div>
                                 <input type="file" class="nova-avatar-upload-input" accept="image/*" style="display: none;">
@@ -12130,7 +12283,7 @@ sketch or construction lines.`,
                         <i class="fa-solid fa-trash"></i>
                     </button>` : ''}
                     <i class="fa-solid ${folder.icon} nova-folder-icon"></i>
-                    <div class="nova-folder-name">${folder.name}</div>
+                    <div class="nova-folder-name">${escapeHtml(folder.name)}</div>
                     <div class="nova-folder-count">${folder.npcs.length} NPC</div>
                 </div>
             `;
@@ -12323,8 +12476,8 @@ sketch or construction lines.`,
         folder.npcs.forEach(npc => {
             const initial = (npc.name || '?').charAt(0).toUpperCase();
             const avatarHtml = npc.avatar
-                ? `<img src="${npc.avatar}" class="nova-profile-avatar" style="width:44px;height:44px;min-width:44px;" onerror="this.style.display='none'">`
-                : `<div class="nova-profile-avatar" style="width:44px;height:44px;min-width:44px;background-color: ${npc.color || '#607d8b'}; color: white; font-weight: bold; font-size: 18px;">${initial}</div>`;
+                ? `<img src="${escapeHtml(npc.avatar)}" class="nova-profile-avatar" style="width:44px;height:44px;min-width:44px;">`
+                : `<div class="nova-profile-avatar" style="width:44px;height:44px;min-width:44px;background-color: ${safeColor(npc.color, '#607d8b')}; color: white; font-weight: bold; font-size: 18px;">${initial}</div>`;
 
             const otherFolders = getAllFolders().filter(f => f.id !== folder.id);
 
@@ -12334,8 +12487,8 @@ sketch or construction lines.`,
                         ${npcSelectMode ? `<input type="checkbox" class="nova-npc-select" ${selectedNpcIds.has(npc.id) ? 'checked' : ''} style="width:18px;height:18px;accent-color: var(--nova-accent); cursor: pointer; flex-shrink: 0;">` : ''}
                         ${avatarHtml}
                         <div style="flex: 1; min-width: 0;">
-                            <div class="nova-profile-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${npc.name}</div>
-                            <div class="nova-profile-handle" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${npc.handle}</div>
+                            <div class="nova-profile-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(npc.name)}</div>
+                            <div class="nova-profile-handle" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(npc.handle)}</div>
                         </div>
                         <label class="nova-switch" title="${t('Включить NPC в ленте')}" style="margin: 0; flex-shrink: 0;">
                             <input type="checkbox" class="npc-toggle-active" ${npc.active ? 'checked' : ''}>
@@ -12501,9 +12654,9 @@ sketch or construction lines.`,
                 </div>` : ''}
                 <div class="nova-npc-folder-list" style="max-height: min(320px, 50vh); overflow-y: auto; padding: 4px 0;">
                     ${otherFolders.map(f => `
-                    <div class="nova-npc-menu-item" data-action="${mode}" data-folder="${f.id}" data-name="${String(f.name).toLowerCase()}" style="${itemStyle}">
+                    <div class="nova-npc-menu-item" data-action="${mode}" data-folder="${f.id}" data-name="${escapeHtml(String(f.name).toLowerCase())}" style="${itemStyle}">
                         <i class="fa-solid ${f.icon || 'fa-folder'}" style="width: 16px; color: var(--nova-text-muted);"></i>
-                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${f.name}</span>
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.name)}</span>
                     </div>`).join('')}
                     <div class="nova-npc-folder-empty" style="display: none; padding: 12px 14px; font-size: 13px; color: var(--nova-text-muted);">${t('Ничего не найдено')}</div>
                 </div>
@@ -12717,7 +12870,7 @@ sketch or construction lines.`,
             const caption = String(item.prompt || '').trim() || `${item.source} · ${item.author}`;
             const $cell = $(`
                 <div class="nova-gallery-item" data-index="${index}" title="${escapeHtml(caption)}">
-                    <img src="${item.thumbnail || item.image}" loading="lazy" alt="" ${item.thumbnail && item.thumbnail !== item.image ? `data-full="${escapeHtml(item.image)}" onerror="this.onerror=null;this.src=this.dataset.full"` : ''}>
+                    <img src="${escapeHtml(item.thumbnail || item.image)}" loading="lazy" alt="" ${item.thumbnail && item.thumbnail !== item.image ? `data-full="${escapeHtml(item.image)}"` : ''}>
                     <div class="nova-gallery-caption">${escapeHtml(item.author || '')}</div>
                 </div>
             `);
@@ -12784,8 +12937,8 @@ sketch or construction lines.`,
             const status = rec.status || relationshipStatusForAffinity(rec.affinity);
             const color = relationshipColorForAffinity(rec.affinity);
             const avatarHtml = p.avatar
-                ? `<img src="${p.avatar}" class="nova-profile-avatar" onerror="this.style.display='none'">`
-                : `<div class="nova-profile-avatar" style="background-color: ${p.color || '#333'}; color: white; font-weight: bold; font-size: 18px;">${(p.name || '?').charAt(0).toUpperCase()}</div>`;
+                ? `<img src="${escapeHtml(p.avatar)}" class="nova-profile-avatar">`
+                : `<div class="nova-profile-avatar" style="background-color: ${safeColor(p.color, '#333')}; color: white; font-weight: bold; font-size: 18px;">${escapeHtml((p.name || '?').charAt(0).toUpperCase())}</div>`;
 
             // Дельта — только у самой реакции, которая её вызвала. Раньше та же
             // цифра дублировалась ещё и в шапке карточки рядом с процентом, что
