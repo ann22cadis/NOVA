@@ -4524,6 +4524,12 @@ sketch or construction lines.`,
         return /^#[0-9a-f]{3,8}$/i.test(v) ? v : fallback;
     }
 
+    /** background-image: url("…") из строки: кавычки, скобки и переводы строк кодируются. */
+    function cssImageUrl(value) {
+        const v = String(value ?? '').replace(/["'()\\\s]/g, c => encodeURIComponent(c) === c ? `%${c.charCodeAt(0).toString(16).padStart(2, '0')}` : encodeURIComponent(c));
+        return `url("${v}")`;
+    }
+
     /** Целое неотрицательное число (лайки, репосты): модель может прислать там что угодно. */
     function safeCount(value) {
         const n = Math.round(Number(value));
@@ -4706,7 +4712,7 @@ sketch or construction lines.`,
             const $overlay = $(`
                 <div id="nova-image-viewer" class="active" style="display: flex !important; z-index: 100030; background: black; flex-direction: column; position: fixed; top: 0; left: 0; margin: 0 !important; width: ${viewerWidth}px; height: ${viewerHeight}px;">
                     <div class="nova-photo-viewer-image-container" style="width: 100%; height: 100%; flex: 1 1 auto; position: relative; overflow: hidden;">
-                        <img src="${currentVersion.image}" alt="" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transition: transform 0.1s ease-out; transform-origin: center center; will-change: transform;">
+                        <img src="${escapeHtml(currentVersion.image)}" alt="" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transition: transform 0.1s ease-out; transform-origin: center center; will-change: transform;">
                     </div>
 
                     <div class="nova-icon-btn" id="nova-image-viewer-close" title="${t('Закрыть')}" style="position: absolute; top: calc(16px + var(--nova-safe-top)); right: calc(16px + var(--nova-safe-right)); background: rgba(255,255,255,0.12); z-index: 20; color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
@@ -7086,9 +7092,11 @@ sketch or construction lines.`,
         return null;
     }
 
+    // Только своя картинка: внешние ссылки (http…) стикер не загружает
     const stickerSrc = path => {
-        const p = String(path || '');
-        return (p.startsWith('data:') || p.startsWith('/') || p.startsWith('http')) ? p : `/${p}`;
+        const p = String(path || '').trim();
+        if (!isLocalImagePath(p)) return '';
+        return (p.startsWith('data:') || p.startsWith('/')) ? p : `/${p}`;
     };
 
     function loadImageElement(src) {
@@ -11319,7 +11327,7 @@ sketch or construction lines.`,
         // Шапка профиля: своя картинка либо однотонная заливка
         const $banner = $('#nova-public-profile-banner');
         if (profile.banner) {
-            $banner.css({ 'background-image': `url("${profile.banner}")`, 'background-color': 'transparent' });
+            $banner.css({ 'background-image': cssImageUrl(profile.banner), 'background-color': 'transparent' });
         } else {
             $banner.css({ 'background-image': 'none', 'background-color': profile.color || 'var(--nova-accent)' });
         }
@@ -11591,7 +11599,7 @@ sketch or construction lines.`,
                                 </div>
                                 <input type="file" class="nova-avatar-upload-input" accept="image/*" style="display: none;">
                                 <div style="position: relative; cursor: pointer; width: 96px; height: 32px; border-radius: 8px; overflow: hidden; background: var(--nova-surface-hover); border: 1px dashed var(--nova-border); display: flex; align-items: center; justify-content: center; flex-shrink: 0;" class="nova-banner-upload-wrapper" title="${t('Загрузить шапку профиля')}">
-                                    <img class="nova-banner-preview" src="${genProfile && genProfile.banner ? genProfile.banner : ''}" style="width: 100%; height: 100%; object-fit: cover; ${genProfile && genProfile.banner ? '' : 'display: none;'}">
+                                    <img class="nova-banner-preview" src="${escapeHtml(genProfile && genProfile.banner ? genProfile.banner : '')}" style="width: 100%; height: 100%; object-fit: cover; ${genProfile && genProfile.banner ? '' : 'display: none;'}">
                                     <i class="fa-solid fa-image nova-banner-empty-icon" style="font-size: 12px; color: var(--nova-text-muted); ${genProfile && genProfile.banner ? 'display: none;' : ''}"></i>
                                     <button class="nova-banner-clear-btn" title="${t('Убрать шапку')}" style="position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.6); color: white; border: none; width: 16px; height: 16px; border-radius: 50%; cursor: pointer; font-size: 9px; line-height: 1; padding: 0; ${genProfile && genProfile.banner ? '' : 'display: none;'}">
                                         <i class="fa-solid fa-xmark"></i>
@@ -11789,7 +11797,7 @@ sketch or construction lines.`,
         if ($headerAvatar.is('img')) {
             $headerAvatar.attr('src', dataUrl).show();
         } else {
-            $headerAvatar.replaceWith(`<img src="${dataUrl}" class="nova-profile-avatar">`);
+            $headerAvatar.replaceWith(`<img src="${escapeHtml(dataUrl)}" class="nova-profile-avatar">`);
         }
     }
 
@@ -11862,7 +11870,12 @@ sketch or construction lines.`,
         };
         // Можно передать уже готовую картинку — data URL или путь к файлу — а не только File
         if (typeof file === 'string') {
-            loadSrc(/^(data:|\/|https?:)/.test(file) ? file : `/${file}`);
+            // Только своя картинка: путь из папки Таверны или data:image
+            if (!isLocalImagePath(file)) {
+                toastr.error(t('Не удалось прочитать изображение'));
+                return;
+            }
+            loadSrc(file.startsWith('data:') || file.startsWith('/') ? file : `/${file}`);
         } else {
             const reader = new FileReader();
             reader.onload = (event) => loadSrc(event.target.result);
@@ -11877,7 +11890,7 @@ sketch or construction lines.`,
                     <div style="flex: 0 0 auto; padding: calc(14px + var(--nova-safe-top)) 16px 8px; text-align: center; font-size: 15px; font-weight: 600;">${title}</div>
                     <div class="nova-cropper-body" style="flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 8px 12px; overflow: hidden;">
                         <div class="nova-cropper-stage" style="position: relative; line-height: 0; touch-action: none; user-select: none; max-width: 100%; max-height: 100%;">
-                            <img class="nova-cropper-img" src="${img.src}" style="display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; pointer-events: none;">
+                            <img class="nova-cropper-img" src="${escapeHtml(img.src)}" style="display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; pointer-events: none;">
                             <div class="nova-cropper-box" style="position: absolute; border: 2px solid var(--nova-accent); box-shadow: 0 0 0 9999px rgba(0,0,0,0.6); cursor: move; box-sizing: border-box; display: none;">
                                 <div class="nova-crop-handle" data-corner="nw" style="position: absolute; width: 24px; height: 24px; top: -12px; left: -12px; background: var(--nova-accent); border: 2px solid #fff; border-radius: 50%; cursor: nwse-resize; touch-action: none;"></div>
                                 <div class="nova-crop-handle" data-corner="ne" style="position: absolute; width: 24px; height: 24px; top: -12px; right: -12px; background: var(--nova-accent); border: 2px solid #fff; border-radius: 50%; cursor: nesw-resize; touch-action: none;"></div>
